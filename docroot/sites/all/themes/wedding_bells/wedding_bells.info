@@ -1,0 +1,17 @@
+name = Wedding Bells
+description = 2 Column. An easy to use, yet easily customizable Wedding theme for Drupal websites.
+core = 6.x
+engine = phptemplate
+stylesheets[all][] = style.css
+
+regions[right] = Right Sidebar
+regions[content_top] = Content Top
+regions[content] = Content
+regions[content_bottom] = Content Botom
+regions[footer] = Footer
+; Information added by drupal.org packaging script on 2012-04-24
+version = "6.x-1.3"
+core = "6.x"
+project = "wedding_bells"
+datestamp = "1335307585"
+
