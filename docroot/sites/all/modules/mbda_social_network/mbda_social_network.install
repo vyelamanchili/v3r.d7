@@ -1,0 +1,78 @@
+<?php
+// $Id: mbda_social_network.install,v 1.0 2010/07/02 00:00:00 vyelamanchili $
+
+/**
+ * Installation of the mbda social networking module
+ * 
+ * Implementation of hook_install
+ */
+function mbda_social_network_install() { 
+
+	if(!drupal_install_schema('mbda_social_network')) {
+		drupal_set_message(t("Could not create the required tables in the database for the module."), 'error');
+	} else {
+		drupal_set_message(t("Required tables installed successfully."));
+	}
+	
+	drupal_set_message(t("Successfully installed mbda_social_network module")); 
+}
+
+/**
+ * Uninstallation of the mbda quick links module. Removes all the variable created by the module.
+ * 
+ * Implementation of hook_uninstall
+ */
+function mbda_social_network_uninstall() {
+	
+	if(!drupal_uninstall_schema('mbda_social_network')) {
+		drupal_set_message(t("Could not delete the related tables from the database."), 'error');
+	} else {
+		drupal_set_message(t("Related tables removed successfully."));
+	}
+		
+	$variables = db_query("SELECT name FROM {variable} WHERE name LIKE 'mbda_social_network%%'");
+  while ($variable = db_fetch_object($variables)) {
+    variable_del($variable->name);
+  }
+  update_sql("DELETE FROM {system} WHERE name like 'mbda_social_network%%'");
+
+	drupal_set_message(t("Uninstalled completed for mbda_social_network module"));	
+}
+
+/**
+ * Implementation of hook_schema()
+ */
+function mbda_social_network_schema() {
+	$schema = array();
+	
+	$schema['mbda_social_network_twitter_statuses'] = array(
+		'description' => t('This table contains all the status updates from twitter.'),
+		'fields' => array(
+			'tweetid' => array(
+				'description' => t('This column stores the id of the tweet'),
+				'type' => 'varchar',
+				'length' => 20,
+				'not null' => TRUE,
+			),
+			'statustext' => array(
+				'description' => t('This column stores the status text'),
+				'type' => 'text',
+				'not null' => TRUE,
+			),
+			'link' => array(
+				'description' => t('This column stores the link to the status'),
+				'type' => 'text',
+				'not null' => TRUE,
+			),
+			'creation_date' => array(
+				'description' => t('This column stores time of creation.'),
+				'type' => 'varchar',
+				'length' => 40,
+				'not null' => TRUE,
+			),
+		),
+		'primary key' => array('tweetid'),
+	);
+	
+	return $schema;
+}

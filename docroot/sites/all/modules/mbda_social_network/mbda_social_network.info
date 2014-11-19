@@ -1,0 +1,7 @@
+; $Id: mbda_social_network.info,v 1.0.0.0 2010/07/02 00:00:00 vyelamanchili Exp $
+name = MBDA Social Network Updates
+description = Display twitter and facebook updates in a block
+core = 6.x
+version = 6.x-1.0
+project = mbda_social_network
+package = MBDA Modules

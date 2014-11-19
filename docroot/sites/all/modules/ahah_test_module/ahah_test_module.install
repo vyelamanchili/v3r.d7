@@ -1,0 +1,146 @@
+<?php
+// $Id: ahah_test_module.install,v 1.0 2010/06/14 00:00:00 ryelamanchili $
+
+/**
+ * Installation of the mbda zoom map module
+ * 
+ * Impolementation of hook_install
+ */
+function ahah_test_module_install() { 
+	if(!drupal_install_schema('ahah_test_module')) {
+		drupal_set_message(t("Could not create the required tables in the database for the module."), 'error');
+	} else {
+		drupal_set_message(t("Required tables installed successfully."));
+	}
+	
+	drupal_set_message(t("Successfully installed ahah_test_module module")); 
+}
+
+/**
+ * Uninstallation of the mbda zoom map module. Removes all the variable created by the module.
+ * 
+ * Implementation of hook_uninstall
+ */
+function ahah_test_module_uninstall() {
+	if(!drupal_uninstall_schema('ahah_test_module')) {
+		drupal_set_message(t("Could not delete the related tables from the database."), 'error');
+	} else {
+		drupal_set_message(t("Related tables removed successfully."));
+	}
+	
+	$variables = db_query("SELECT name FROM {variable} WHERE name LIKE 'ahah_test_module%%'");
+  while ($variable = db_fetch_object($variables)) {
+    variable_del($variable->name);
+  }
+  update_sql("DELETE FROM {system} WHERE name like 'ahah_test_module%%'");
+
+	drupal_set_message(t("Uninstalled completed for ahah_test_module module"));	
+}
+
+/**
+ * This hook implementation creates the table for storing the node information for the map office points.
+ *
+ * Implementation of hook_schema
+ */
+function ahah_test_module_schema() {
+	$schema = array();
+	
+	$schema['ahah_test_module_content'] = array (
+		'description' => t('This table contains all the node information on the map'),
+		'fields' => array(
+			'nid' => array(
+				'type' => 'serial',
+				'not null' => TRUE,
+			),
+			'imgid' => array(
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+			'aid' => array(
+				'description' => t('a href tag id.'),
+				'type' => 'varchar',
+				'length' => 50,
+				'not null' => TRUE,
+			),
+			'divid' => array(
+				'description' => t('popup div tag id'),
+				'type' => 'varchar',
+				'length' => 50,
+			),
+			'relx' => array(
+				'description' => t('X coordinate for the note point on the mapimage'),
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+			'rely' => array(
+				'description' => t('Y coordinate for the note point on the mapimage'),
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+			'headertitle' => array(
+				'description' => t('Title for the popup window.'),
+				'type' => 'text',
+			),
+			'divcontent' => array(
+				'description' => t('Content of the popup window.'),
+				'type' => 'text',
+			),
+		),
+		'unique keys' => array(
+			'imgid_aid' => array('imgid', 'aid',),
+			'aid' => array('aid'),
+			'divid' => array('divid'),
+			'relx_rely' => array('relx', 'rely',),
+		),
+		'primary key' => array('nid'),
+	);
+	
+	//This table is for storing the maps images and their zoomed map images and otehr info for setup of JS
+	$schema['ahah_test_module_image_map'] = array (
+		'description' => t('This table contains the images needed for the zoom map and their related info.'),
+		'fields' => array(
+			'mapid' => array(
+				'type' => 'varchar',
+				'length' => 50,
+				'not null' => TRUE,
+			),
+			'imgid' => array(
+				'type' => 'serial',
+				'not null' => TRUE,
+			),
+			'parentimgid' => array(
+				'type' => 'int',
+			),
+			'mapimage' => array(
+				'description' => t('This column stores the path of the image for which this record has the image info.'),
+				'type' => 'varchar',
+				'length' => 255,
+				'not null' => TRUE,
+			),
+			'imgwidth' => array(
+				'description' => t('Width of the image when unzoomed.'),
+				'type' => 'int',
+			),
+			'imgheight' => array(
+				'description' => t('Height of the image when unzoomed.'),
+				'type' => 'int',
+			),
+			'xcoordinate' => array(
+				'description' => t('X coordinate for the note point on the mapimage'),
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+			'ycoordinate' => array(
+				'description' => t('Y coordinate for the note point on the mapimage'),
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+		),
+		'unique keys' => array(
+			'x_ycoordinate' => array('xcoordinate', 'ycoordinate',),
+		),
+		'primary key' => array('imgid'),
+	);
+	
+	return $schema;
+}
