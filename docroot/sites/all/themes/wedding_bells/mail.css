@@ -1,0 +1,84 @@
+/*
+Theme Name: Wedding Bells
+Theme URI: 
+Description: Drupal 6 Theme for wedding & marriage related blogs and websites
+Version: 1.0 Beta
+Author: Jason Moore
+Author URI: http://arborwebdevelopment.com
+-
+Ported to Drupal 6 from a Wordpress theme of the same name by Lauri Liimatta.
+http://lauriliimatta.com
+-
+Wedding Bells Theme is released under the GNU General Public License, version 2 (GPL).
+
+For more information about the GPL, please visit:
+http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+-
+*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, font, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	font-size: 100%;
+	vertical-align: baseline;
+	background: transparent;
+}
+body {
+	line-height: 1;
+	font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+}
+ol, ul {
+	list-style: none;
+}
+blockquote, q {
+	quotes: none;
+}
+/*------------------------------------RSVP Invitation email theme*/
+#rsvp-email {
+	background: #faf5e5;
+	height: 100%;
+}
+#rsvp-email-cover {
+	background: url(http://www.swathywedsranjeesh.v3r.us/sites/all/themes/wedding_bells/images/envelope-img/cover.png) center 20px no-repeat;
+	height: 526px;
+	width: 610px;
+	margin: 0 auto;
+	padding: 20px 60px 350px 56px;
+}
+#rsvp-website {
+	text-align:center;
+	font-size: 12px;
+}	
+#rsvp-header {
+	background: url(http://www.swathywedsranjeesh.v3r.us/sites/all/themes/wedding_bells/images/envelope-img/banner.png) center no-repeat;
+	width: 100%;
+	height: 100px;
+	}
+#rsvp-header img {
+	padding: 20px 100px 0 100px;
+	}
+#rsvp-content {
+	height: 385px;	
+	padding: 20px 40px;
+	text-shadow: 0 0 5px rgba(0, 0, 0, 0.75);
+	}	
+#rsvp-seal {
+	background: url(http://www.swathywedsranjeesh.v3r.us/sites/all/themes/wedding_bells/images/envelope-img/save-the-date.png) center bottom no-repeat;
+	height: 138px;
+	padding-top: 20px;
+	}
+#rsvp-cover-print {
+	background: url(http://www.swathywedsranjeesh.v3r.us/sites/all/themes/wedding_bells/images/envelope-img/seal.png) center no-repeat;
+	height: 112px;
+	padding-top: 20px;
+	}

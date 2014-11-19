@@ -1,0 +1,182 @@
+<?php
+// $Id: mbda_zoom_map.install,v 1.0 2010/06/14 00:00:00 ryelamanchili $
+
+/**
+ * Installation of the mbda zoom map module
+ * 
+ * Impolementation of hook_install
+ */
+function mbda_zoom_map_install() { 
+	if(drupal_install_schema('mbda_zoom_map')) {
+		drupal_set_message(t("Required tables installed successfully."));
+	} else {
+		drupal_set_message(t("Could not create the required tables in the database for the module."), 'error');
+	}	
+	drupal_set_message(t("Successfully installed mbda_zoom_map module")); 
+}
+
+/**
+ * Uninstallation of the mbda zoom map module. Removes all the variable created by the module.
+ * 
+ * Implementation of hook_uninstall
+ */
+function mbda_zoom_map_uninstall() {
+	if(drupal_uninstall_schema('mbda_zoom_map')) {
+		drupal_set_message(t("Related tables removed successfully."));
+	} else {
+		drupal_set_message(t("Could not delete the related tables from the database."), 'error');
+	}
+	
+	$variables = db_query("SELECT name FROM {variable} WHERE name LIKE 'mbda_zoom_map%%'");
+  while ($variable = db_fetch_object($variables)) {
+    variable_del($variable->name);
+  }
+  update_sql("DELETE FROM {system} WHERE name like 'mbda_zoom_map%%'");
+	
+	if(file_delete(variable_get('file_directory_path', '')."/images/zoommap/*")) {
+		drupal_set_message(t('Successfully deleted the folder created by this module!'));
+	} else {
+		drupal_set_message(t('Couldnt delete the folder created by this module!', "error"));
+	}
+
+	drupal_set_message(t("Uninstalled completed for mbda_zoom_map module"));	
+}
+
+/**
+ * This hook implementation creates the table for storing the node information for the map office points.
+ *
+ * Implementation of hook_schema
+ */
+function mbda_zoom_map_schema() {
+	$schema = array();
+
+	//This table is for storing the maps images and their zoomed map images and otehr info for setup of JS
+	$schema['mbda_zoom_map_image_map'] = array (
+	
+		'description' => t('This table contains the images needed for the zoom map and their related info.'),
+		'fields' => array(
+			'mapid' => array(
+				'description' => t('This column stores the name of the map this data is linked to (i.e. delta value for block)'),
+				'type' => 'varchar',
+				'length' => 50,
+				'not null' => TRUE,
+			),
+			'imgid' => array(
+				'type' => 'varchar',
+				'length' => 30,
+				'not null' => TRUE,
+			),
+			'parentimgid' => array(
+				'type' => 'varchar',
+				'length' => 30,
+			),
+			'mapimage' => array(
+				'description' => t('This column stores the path of the image for which this record has the image info.'),
+				'type' => 'varchar',
+				'length' => 255,
+				'not null' => TRUE,
+			),
+			'imgwidth' => array(
+				'description' => t('Width of the image when unzoomed.'),
+				'type' => 'int',
+				'length' => 4,
+			),
+			'imgheight' => array(
+				'description' => t('Height of the image when unzoomed.'),
+				'type' => 'int',
+				'length' => 4,
+			),
+			'xcoordinate' => array(
+				'description' => t('X coordinate for the note point on the mapimage'),
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+			'ycoordinate' => array(
+				'description' => t('Y coordinate for the note point on the mapimage'),
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+		),
+		'unique keys' => array(
+			'imgid' => array('imgid',),
+			'mapid_x_ycoordinate' => array('mapid', 'xcoordinate', 'ycoordinate',),
+		),
+		'primary key' => array('imgid'),
+	);
+	
+	//This table holds the node info like what text is displayed when clicked on this x,y location and which image does this node belong to.
+	$schema['mbda_zoom_map_content'] = array (
+		'description' => t('This table contains all the node information on the map'),
+		'fields' => array(
+			'nid' => array(
+				'type' => 'varchar',
+				'length' => 30,
+				'not null' => TRUE,	
+			),			
+			'mapimageid' => array(
+				'description' => t('This column stores imageid of the map image which tells that this node content belongs tyo so and so image in image map table.'),
+				'type' => 'varchar',
+				'length' => 30,				
+				'not null' => TRUE,
+			),
+			'aid' => array(
+				'description' => t('a href tag id.'),
+				'type' => 'varchar',
+				'length' => 50,
+				'not null' => TRUE,
+			),
+			'divid' => array(
+				'description' => t('popup div tag id'),
+				'type' => 'varchar',
+				'length' => 50,
+			),
+			'relx' => array(
+				'description' => t('X coordinate for the note point on the mapimage'),
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+			'rely' => array(
+				'description' => t('Y coordinate for the note point on the mapimage'),
+				'type' => 'int',
+				'not null' => TRUE,
+			),
+			'headertitle' => array(
+				'description' => t('Title for the popup window.'),
+				'type' => 'text',
+			),
+			'divcontent' => array(
+				'description' => t('Content of the popup window.'),
+				'type' => 'text',
+			),
+		),
+		'unique keys' => array(
+			'mapimageid_aid' => array('mapimageid', 'aid',),			
+			'relx_rely' => array('relx', 'rely',),
+		),
+		'primary key' => array('nid'),
+	);
+	
+	//Table for storing page title of the map
+	$schema['mbda_zoom_map_page_title'] = array (
+		'description' => t('This table contains node title for the map'),
+		'fields' => array(
+			'mapid' => array(
+				'type' => 'varchar',
+				'length' => 30,
+				'not null' => TRUE,	
+			),			
+			'pagetitle' => array(
+				'description' => t('This column stores the title for the page of this map.'),
+				'type' => 'varchar',
+				'length' => 100,				
+				'not null' => TRUE,
+			),
+		),
+		'unique keys' => array(
+			'mapid_pagetitle' => array('mapid', 'pagetitle',),
+		),
+		'primary key' => array('mapid'),
+	);
+	
+	return $schema;
+}

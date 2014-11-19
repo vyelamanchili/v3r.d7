@@ -1,0 +1,2985 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Drupal Guestbook (DGB) provides a site guestbook and guestbooks for users.
+ */
+
+/**
+ * The Drupal Guestbook version.
+ */
+define('DGB_VERSION', '1.0');
+
+/**
+ * Guestbook entry is published.
+ */
+define('DGB_ENTRY_PUBLISHED', 0);
+
+/**
+ * Guestbook entry is not published.
+ */
+define('DGB_ENTRY_NOT_PUBLISHED', 1);
+
+/**
+ * Flags for use in the "dgb_mode" variable.
+ */
+define('DGB_SITE_GUESTBOOK', 0x0001);
+define('DGB_USER_GUESTBOOKS', 0x0002);
+
+/**
+ * Flags for use in the "dgb_pager_position" variable.
+ */
+define('DGB_PAGER_ABOVE', 0x0001);
+define('DGB_PAGER_BELOW', 0x0002);
+
+define('DGB_TEXTAREA_ROWS', 8);
+
+/**
+ * Implementation of hook_init().
+ */
+function dgb_init() {
+  $path = drupal_get_path('module', 'dgb');
+
+  drupal_add_css($path .'/css/dgb.css');
+  _dgb_include();
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function dgb_perm() {
+  return array(
+    'administer guestbook',
+    'access site guestbook',
+    'access user guestbooks',
+    'post in site guestbook',
+    'post in user guestbooks',
+    'moderate all guestbooks',
+    'moderate own guestbook',
+    'search guestbooks'
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function dgb_menu() {
+  $items = array();
+  $dgb_mode = variable_get('dgb_mode', DGB_SITE_GUESTBOOK | DGB_USER_GUESTBOOKS);
+
+  $items['admin/content/dgb'] = array(
+    'title' => 'Guestbook entries',
+    'description' => 'Guestbook entries list to view, edit, delete, unpublish or publish entries.',
+    'page callback' => 'dgb_entry_admin',
+    'access arguments' => array('administer guestbook'),
+    'file' => 'dgb.admin.inc',
+    'file path' => drupal_get_path('module', 'dgb') .'/inc'
+  );
+  // Tabs:
+  $items['admin/content/dgb/new'] = array(
+    'title' => 'Published',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['admin/content/dgb/approval'] = array(
+    'title' => 'Unpublished',
+    'page arguments' => array('approval'),
+    'access arguments' => array('administer guestbook'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'dgb.admin.inc',
+    'file path' => drupal_get_path('module', 'dgb') .'/inc'
+  );
+
+  $items['admin/settings/dgb'] = array(
+    'title' => 'Drupal Guestbook',
+    'description' => 'Manage guestbook types, display and posting options and various other things.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('dgb_admin_settings'),
+    'access arguments' => array('administer guestbook'),
+    'file' => 'dgb.admin.inc',
+    'file path' => drupal_get_path('module', 'dgb') .'/inc'
+  );
+  // Tabs:
+  $items['admin/settings/dgb/settings'] = array(
+    'title' => 'DGB settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10
+  );
+
+  /**
+   * AHAH menu item for guestbook administration.
+   * @see file dgb.admin.inc|dgb_entry_admin_overview()
+   */
+  $items['dgb/filter/admin/%/%'] = array(
+    'title' => 'Ex or include entries',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('dgb_admin_ahah_actions', 3, 4),
+    'access arguments' => array('administer guestbook'),
+    'type' => MENU_CALLBACK,
+    'file' => 'dgb.admin.inc',
+    'file path' => drupal_get_path('module', 'dgb') .'/inc'
+  );
+
+  // User guestbooks.
+  if ($dgb_mode & DGB_USER_GUESTBOOKS) {
+    $items['guestbooks'] = array( 
+      'title' => 'Guestbooks',
+      'page callback' => 'dgb_list',
+      'access arguments' => array('access user guestbooks')
+    );
+
+    $type = MENU_LOCAL_TASK;
+    if (variable_get('dgb_tab', 1) == 0) {
+      $type = MENU_SUGESTED_ITEM;
+    }
+    $items['user/%user/dguestbook'] = array(
+      'title' => 'User guestbook',
+      'title callback' => '_dgb_info',
+      'title arguments' => array(1, 'title'),
+      'page callback' => 'dgb_page',
+      'page arguments' => array(1),
+      'access callback' => 'dgb_access_dgb',
+      'access arguments' => array(1),
+      'type' => $type
+    );
+    $items['user/%user/dguestbook/sign'] = array(
+      //'title' => 'Add guestbook entry',
+      'page callback' => 'dgb_page_form',
+      'page arguments' => array(1, 'post'),
+      'access callback' => 'dgb_access_dgb',
+      'access arguments' => array(1),
+      'type' => MENU_CALLBACK
+    );
+
+    $items['user/%user/dguestbook/unpublish/%dgb_entry'] = array(
+      //'title' => 'Unpublish guestbook entry',
+      'page callback' => 'dgb_publishing',
+      'page arguments' => array(3, 4),
+      'access callback' => 'dgb_access_dgb',
+      'access arguments' => array(1)
+    );
+    $items['user/%user/dguestbook/publish/%dgb_entry'] = array(
+      //'title' => 'Publish guestbook entry',
+      'page callback' => 'dgb_publishing',
+      'page arguments' => array(3, 4),
+      'access callback' => 'dgb_access_dgb',
+      'access arguments' => array(1)
+    );
+  }
+
+  // Single entry.
+  $items['drupal-guestbook/%user/%dgb_entry'] = array(
+    'title' => 'Guestbook entry',
+    'title callback' => '_dgb_info',
+    'title arguments' => array(1, 'title'),
+    'page callback' => 'dgb_entry',
+    'page arguments' => array(1, 2),
+    'access callback' => 'dgb_access_dgb',
+    'access arguments' => array(1),
+    'type' => MENU_CALLBACK
+  );
+
+  // Site guestbook.
+  if ($dgb_mode & DGB_SITE_GUESTBOOK) {
+    $items['site-guestbook'] = array(
+      'title' => variable_get('dgb_site_title', t('Site guestbook')),
+      'page callback' => 'dgb_page',
+      'page arguments' => array(0),
+      'access arguments' => array('access site guestbook')
+    );
+    $items['site-guestbook/sign'] = array(
+      //'title' => 'Add guestbook entry',
+      'page callback' => 'dgb_page_form',
+      'page arguments' => array(0),
+      'access arguments' => array('post in site guestbook'),
+      'type' => MENU_CALLBACK
+    );
+    $items['site-guestbook/unpublish/%dgb_entry'] = array(
+      //'title' => 'Unpublish guestbook entry',
+      'page callback' => 'dgb_publishing',
+      'page arguments' => array(1, 2),
+      'access arguments' => array('access site guestbook')
+    );
+    $items['site-guestbook/publish/%dgb_entry'] = array(
+      //'title' => 'Publish guestbook entry',
+      'page callback' => 'dgb_publishing',
+      'page arguments' => array(1, 2),
+      'access arguments' => array('access site guestbook')
+    );
+  }
+
+  // Entry comments.
+  $items['drupal-guestbook/comment/add/%dgb_entry'] = array(
+    'title' => 'Add guestbook entry comment',
+    'page callback' => 'dgb_form_comment',
+    'page arguments' => array(2, 3),
+    'access callback' => 'dgb_access_comment',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK
+  );
+  $items['drupal-guestbook/comment/edit/%dgb_entry'] = array(
+    'title' => 'Edit guestbook entry comment',
+    'page callback' => 'dgb_form_comment',
+    'page arguments' => array(2, 3),
+    'access callback' => 'dgb_access_comment',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+/**
+ * An implementation of hook_theme_registry_alter()
+ *
+ * Swap in our own replacement for theme_username(), allowing the
+ * site admin to configure the string on a per-nodetype basis.
+ **/
+function dgb_theme_registry_alter(&$theme_registry) {
+  if (variable_get('dgb_notver', true) == false) {
+    $path = drupal_get_path('module', 'dgb');
+    $theme_registry['username']['function'] = 'dgb_username';
+    $theme_registry['username']['theme path'] = $path;
+    $theme_registry['username']['theme paths'][0] = $path;
+  }
+}
+
+/**
+ * Format a username.  (copied from theme.inc)
+ *
+ * @param $object
+ *   The user object to format, usually returned from user_load().
+ * @param $options
+ *   An associative array of theme options.
+ *   'not_ver' => whether to show "not verified" (default: from settings page)
+ * @return
+ *   A string containing an HTML link to the user's page if the passed object
+ *   suggests that this is a site user. Otherwise, only the username is returned.
+ */
+function dgb_username($object, $options = array()) {
+  $defaults = array(
+    'not_ver' => variable_get('dgb_notver', true)
+  );
+  $options = array_merge($defaults, (array)$options);
+
+  if ($object->uid && $object->name) {
+    // Shorten the name when it is too long or it will break many tables.
+    if (drupal_strlen($object->name) > 20) {
+      $name = drupal_substr($object->name, 0, 15) . '...';
+    }
+    else {
+      $name = $object->name;
+    }
+
+    if (user_access('access user profiles')) {
+      $output = l($name, 'user/' . $object->uid, array('attributes' => array('title' => t('View user profile.'))));
+    }
+    else {
+      $output = check_plain($name);
+    }
+  }
+  else if ($object->name) {
+    // Sometimes modules display content composed by people who are
+    // not registered members of the site (e.g. mailing list or news
+    // aggregator modules). This clause enables modules to display
+    // the true author of the content.
+    if (!empty($object->homepage)) {
+      $output = l($object->name, $object->homepage, array('attributes' => array('rel' => 'nofollow')));
+    }
+    else {
+      $output = check_plain($object->name);
+    }
+
+    if ($options['not_ver']) {
+      $output .= ' (' . t('not verified') . ')';
+    }
+  }
+  else {
+    $output = check_plain(variable_get('anonymous', t('Anonymous')));
+  }
+
+  return $output;
+}
+
+/**
+ * Menu link access callback.
+ *
+ *   Used with view, add, edit and delete entries.
+ * 
+ * @param object $account
+ *   A user object.
+ * @return boolean
+ */
+function dgb_access_dgb($account) {
+  global $user;
+  $return = false;
+
+  // If $account->uid == 0 it is the site guestbook.
+  if ($account->uid == 0) {
+    if ((user_access('access user guestbooks') || user_access('access site guestbook'))) {
+      $return = true;
+    }
+  }
+  else {
+    // Guestbook owners see their guestbook always.
+    if ($account->dgb_status == true || $account->uid == $user->uid || user_access('moderate all guestbooks') && (user_access('access user guestbooks') || user_access('access site guestbook'))) {
+      $return = true;
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Menu link access callback to add or edit a comment.
+ *
+ * @param array $entry
+ *   A guestbook entry.
+ * @return boolean
+ */
+function dgb_access_comment($entry) {
+  global $user;
+
+  if ($user->uid == 0) {
+    return false;
+  }
+  else {
+    if (($entry['author'] == $user->uid && user_access('moderate own guestbook')) || user_access('moderate all guestbooks')) {
+      return true;
+    }
+    // If $entry['recipient'] == 0 it is the site guestbook.
+//    if ($entry['recipient'] == 0 && user_access('moderate all guestbooks')) {
+//      return true;
+//    }
+  }
+}
+
+/**
+ * Implementation of hook_update_index().
+ */
+function dgb_update_index() {
+  $limit = (int) variable_get('search_cron_limit', 100);
+
+  $result = db_query_range("SELECT g.id FROM {dgb} g
+                            LEFT JOIN {search_dataset} d ON d.type = 'dgb' AND d.sid = g.id
+                            WHERE d.sid IS NULL OR d.reindex <> 0
+                            ORDER BY d.reindex ASC, g.id ASC", 0, $limit);
+
+  while ($entry = db_fetch_object($result)) {
+    $entry = dgb_entry_load($entry->id);
+
+    // We update this variable per entry in case cron times out, or if the entry
+    // cannot be indexed (PHP nodes which call drupal_goto, for example).
+    // In rare cases this can mean a entry is only partially indexed, but the
+    // chances of this happening are very small.
+    variable_set('dgb_cron_last', $entry['created']);
+
+    // Build entry output (filtered and with specific fields).
+    $entry['subject'] = truncate_utf8($entry['message'], 32, false, false);
+    $entry['message'] = check_markup($entry['message'], variable_get('dgb_input_format', 1), false);
+
+    if (!empty($entry['comment'])) {
+      $entry['comment'] = check_markup($entry['comment'], variable_get('dgb_input_format', 1), false);
+    }
+    
+    $text = $entry['message'] . $entry['comment'];
+
+    // Fetch extra data normally not visible.
+    $extra = dgb_invoke_dgb_entry($entry, 'update index');
+    foreach ($extra as $t) {
+      $text .= $t;
+    }
+
+    // Update index.
+    search_index($entry['id'], 'dgb', $text);
+  }
+}
+
+/**
+ * Implementation of hook_search().
+ */
+function dgb_search($op = 'search', $keys = NULL) {
+  switch ($op) {
+    case 'name':
+      if (user_access('search guestbooks') && (user_access('access site guestbook') || user_access('access user guestbooks'))) {
+        return t('Guestbooks');
+      }
+
+    case 'reset':
+      db_query("UPDATE {search_dataset} SET reindex = %d WHERE type = 'dgb'", time());
+      return;
+
+    case 'status':
+      $total = db_result(db_query('SELECT COUNT(*) FROM {dgb} WHERE status = 0'));
+      $remaining = db_result(db_query("SELECT COUNT(*) FROM {dgb} g
+                                       LEFT JOIN {search_dataset} d ON d.type = 'dgb' AND d.sid = g.id
+                                       WHERE g.status = 0 AND (d.sid IS NULL OR d.reindex <> 0)"));
+      return array('remaining' => $remaining, 'total' => $total);
+
+    case 'search':
+      if (user_access('search guestbooks') && (user_access('access site guestbook') || user_access('access user guestbooks'))) {
+        $destination = dgb_get_destination();
+
+        // Build matching conditions.
+        list($join1, $where1) = _db_rewrite_sql();
+        $arguments1 = array();
+        // State 0 is: published
+        $conditions1 = 'g.status = 0';
+
+        // Do search.
+        $find = do_search($keys, 'dgb', 'INNER JOIN {dgb} g ON g.id = i.sid '. $join1, $conditions1 . (empty($where1) ? '' : ' AND '. $where1), $arguments1);
+
+        // Load results.
+        $results = array();
+        foreach ($find as $item) {
+          $entry = dgb_entry_load($item->sid);
+          $subject = truncate_utf8($entry['message'], 16, false, true);
+          $message = check_markup($entry['message'], variable_get('dgb_input_format', 1), false);
+          if (!empty($entry['comment'])) {
+            $comment = t('Comment') .': '. check_markup($entry['comment'], variable_get('dgb_input_format', 1), false);
+          }
+
+          if ($entry['author'] == 0) {
+            $account = new stdClass;
+            $account->uid = $entry['author'];
+            $account->name = $entry['anonname'];
+          }
+          else {
+            $account = new stdClass;
+            $account->uid = $entry['author'];
+            $account->name = $entry['authorname'];
+          }
+
+          $extra = dgb_invoke_dgb_entry($entry, 'search result');
+          
+          $query = array();
+          if (empty($destination['destination'])) {
+            $query = array('destination' => $destination['path'] );
+          }
+          elseif (!empty($destination['destination'])) {
+            $query = array('destination' => urldecode($destination['destination']) );
+          }
+
+          $results[] = array(
+            'link' => url('drupal-guestbook/'. $entry['recipient'] .'/'. $entry['id'], array('absolute' => true, 'query' => $query)),
+            'type' => t('Guestbook entry'),
+            'title' => $subject,
+            'user' => theme('username', $account),
+            'score' => $item->score,
+            'date' => $entry['changed'],
+            'entry' => theme('dgb_entry', $account, $entry),
+            'extra' => $extra,
+            'snippet' => search_excerpt($keys, $message . $comment),
+          );
+        }
+        return $results;
+      }
+  }
+}
+
+/**
+ * Change a entry's changed timestamp to 'now' to force reindexing.
+ *
+ * @param $eid
+ *   The id of the entry that needs reindexing.
+ */
+function dgb_search_touch_entry($eid) {
+  db_query("UPDATE {search_dataset} SET reindex = %d WHERE sid = %d AND type = 'dgb'", time(), $eid);
+}
+
+/**
+ * Change a entry's comment changed timestamp to 'now' to force reindexing.
+ *
+ * @param $eid
+ *   The id of the entry that needs reindexing.
+ */
+function dgb_search_touch_entry_comment($eid) {
+  db_query("UPDATE {search_dataset} SET reindex = %d WHERE sid = %d AND type = 'dgb'", time(), $eid);
+}
+
+/**
+ * Implementation of hook_block().
+ *
+ *   Provides the blocks:
+ *   - Search guestbooks
+ *   - Guestbooks newest entries
+ */
+function dgb_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info'] = t('DGB search form');
+      // Not worth caching.
+      $blocks[0]['cache'] = BLOCK_NO_CACHE;
+
+      $blocks[1]['info'] = t('DGB newest entries');
+      return $blocks;
+
+    case 'configure':
+      if ($delta == 1) {
+        $form['dgb_block_latest_entries'] = array(
+          '#type' => 'select',
+          '#title' => t('Number of entries'),
+          '#options' => array(3 => '3', 5 => '5', 10 => '10', 15 => '15', 20 => '20', 25 => '25'),
+          '#default_value' => variable_get('dgb_block_latest_entries', 5)
+        );
+        return $form;
+      }
+
+    case 'save':
+      if ($delta == 1) {
+        variable_set('dgb_block_latest_entries', $edit['dgb_block_latest_entries']);
+      }
+
+    case 'view':
+      if (!user_access('access site guestbook') || !user_access('access user guestbooks')) {
+        return;
+      }
+      switch ($delta) {
+        case 0:
+          if (!user_access('search guestbooks')) {
+            return;
+          }
+          $block['content'] = drupal_get_form('dgb_search_block_form');
+          $block['subject'] = false;
+          return $block;
+
+        case 1:
+          $block['content'] = theme('dgb_latest_entries_block_list', variable_get('dgb_block_latest_entries', 5));
+          $block['subject'] = t('Guestbooks');
+          return $block;
+      }
+  }
+}
+
+/**
+ * Form builder; Output a search form for the search block and the theme's search box.
+ *
+ * @param array $form_state
+ *   FAPI values.
+ * @ingroup forms
+ * @see dgb_block()
+ */
+function dgb_search_block_form(&$form_state) {
+  $form = array();
+
+  $form['dgb_search'] = array(
+    '#title' => t('Search guestbooks'),
+    '#type' => 'textfield',
+    '#size' => 15,
+    '#default_value' => '',
+    '#attributes' => array('title' => t('Enter the terms you wish to search for.')),
+    '#prefix' => '<div class="container-inline">',
+    '#suffix' => '</div>'
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search')
+   );
+
+  $form['#submit'][] = 'dgb_search_block_form_submit';
+
+  return $form;
+}
+
+/**
+ * Process a block search form submission.
+ */
+function dgb_search_block_form_submit($form, &$form_state) {
+  // The search form relies on control of the redirect destination for its
+  // functionality, so we override any static destination set in the request,
+  // for example by drupal_access_denied() or drupal_not_found()
+  // (see http://drupal.org/node/292565).
+  if (isset($_REQUEST['destination'])) {
+    unset($_REQUEST['destination']);
+  }
+  if (isset($_REQUEST['edit']['destination'])) {
+    unset($_REQUEST['edit']['destination']);
+  }
+
+  $form_state['redirect'] = 'search/dgb/'. trim($form_state['values']['dgb_search']);
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function dgb_user($op, &$edit, &$user, $category = '') {
+  $dgb_mode = variable_get('dgb_mode', DGB_SITE_GUESTBOOK | DGB_USER_GUESTBOOKS);
+  
+  if ($dgb_mode & DGB_USER_GUESTBOOKS) {
+    switch ($op) {
+      case 'view':
+        if (user_access('access user guestbooks') && $user->dgb_status == true) {
+          $user_name = $user->realname ? $user->realname : $user->name;
+          $title = t("Read @username's guestbook.", array('@username' => $user_name));
+          $link  = l(t('View recent guestbook entries'), "user/$user->uid/dguestbook", array('attributes' => array('title' => $title)));
+          $user->content['summary']['dgb'] = array(
+            '#type' => 'user_profile_item',
+            '#title' => t('Guestbook'),
+            '#value' => $link,
+            '#attributes' => array('class' => 'dgb')
+          );
+        }
+        break;
+
+      case 'form':
+        if ($category == 'account') {
+          $form['dgb'] = array(
+            '#type' => 'fieldset',
+            '#title' => t('User guestbook')
+          );
+          $form['dgb']['dgb_status'] = array(
+            '#type' => 'radios',
+            '#title' => t('Status'),
+            '#default_value' => isset($edit['dgb_status']) ? $edit['dgb_status'] : variable_get('dgb_enabled_status', 1),
+            '#options' => array(
+              0 => t('Disabled'),
+              1 => t('Enabled')
+            )
+          );
+//          $form['dgb']['dgb_send_email'] = array(
+//            '#type' => 'checkbox',
+//            '#title' => t('Send email notification'),
+//            '#description' => t("Uncheck if you don't wish to be notified of new entries to your guestbook."),
+//            '#default_value' => isset($edit['dgb_send_email']) ? $edit['dgb_send_email'] : 0,
+//          );
+          $form['dgb']['dgb_intro'] = array(
+            '#type' => 'textarea',
+            '#title' => t('Intro text'),
+            '#default_value' => isset($edit['dgb_intro']) ? $edit['dgb_intro'] : '',
+            '#cols' => 64,
+            '#rows' => DGB_TEXTAREA_ROWS,
+            '#description' => t('The text that appears on top of your guestbook.')
+          );
+          return $form;
+        }
+        break;
+
+      case 'insert':
+        // Make sure the default guestbook status.
+        if ($user->uid) {
+          $edit['dgb_status'] = variable_get('dgb_enabled_status', 1);
+          $account = user_save($user, $edit);
+          // Terminate if an error occured during user_save().
+          if (!$account) {
+            drupal_set_message(t("Error saving user account."), 'error');
+            return;
+          }
+          $user = $account;
+        }
+
+        if (function_exists('pathauto_path_alias_types') == true) {
+          // Use the username to automatically create a user guestbook path alias.
+          $pathauto_user = (object) array_merge((array) $user, $edit);
+          if ($user->name) {
+            $placeholders = pathauto_get_placeholders('dgb', $pathauto_user);
+            $src = 'user/'. $user->uid .'/dguestbook';
+            $alias = pathauto_create_alias('dgb', $op, $placeholders, $src, $user->uid);
+          }
+        }          
+        break;
+
+      case 'update':
+        if (function_exists('pathauto_path_alias_types') == true) {
+          // Use the username to automatically create a user guestbook path alias.
+          $pathauto_user = (object) array_merge((array) $user, $edit);
+          if ($user->name) {
+            $placeholders = pathauto_get_placeholders('dgb', $pathauto_user);
+            $src = 'user/'. $user->uid .'/dguestbook';
+            $alias = pathauto_create_alias('dgb', $op, $placeholders, $src, $user->uid);
+          }
+        }
+        break;
+
+      case 'delete':
+        db_query("DELETE FROM {dgb} WHERE recipient = %d", $user->uid);
+        db_query("UPDATE {dgb} SET author = 0 WHERE author = %d", $user->uid);
+        db_query("UPDATE {dgb} SET commentauthor = 0 WHERE commentauthor = %d", $user->uid);
+
+        // If the user is deleted, remove the user guestbook path alias.
+        $user = (object) $user;
+        path_set_alias('user/'. $user->uid .'/dguestbook');
+        break;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function dgb_form_alter(&$form, &$form_state, $form_id) {
+  // Provides settings to administer
+  // the usage of pictures in guestbook entries.
+  switch ($form_id) {
+    case 'dgb_admin_settings':
+      $form['#submit'][] = 'dgb_admin_settings_submit';
+      break;
+
+    case 'system_theme_settings':
+      if ($form['var']['#value'] == 'theme_settings') {
+        $key = false;
+      }
+      else {
+        $key = preg_replace('/theme_|_settings/', '', $form['var']['#value']);
+      }
+
+      if ($key) {
+        $settings = theme_get_settings($key);
+        $var = str_replace('/', '_', 'theme_'. $key .'_settings');
+        $themes = system_theme_data();
+        $features = $themes[$key]->info['features'];
+      }
+      else {
+        $settings = theme_get_settings('');
+        $var = 'theme_settings';
+      }
+
+      // Toggle settings.
+      $toggles = array(
+        'dgb_entry_user_picture' => t('User pictures in guestbook entries'),
+      );
+      // Some features are not always available.
+      $disabled = array();
+      if (!variable_get('user_pictures', 0)) {
+        $disabled['toggle_dgb_entry_user_picture'] = true;
+      }
+
+      foreach ($toggles as $name => $title) {
+        if ((!$key) || !isset($features[$name])) {
+          $form['theme_settings']['toggle_'. $name] = array(
+            '#type' => 'checkbox',
+            '#title' => $title,
+            '#default_value' => $settings['toggle_'. $name]
+          );
+          // Disable checkboxes for features not supported in the current configuration.
+          if (isset($disabled['toggle_'. $name])) {
+            $form['theme_settings']['toggle_'. $name]['#disabled'] = true;
+          }
+        }
+      }
+      break;
+
+    case 'pathauto_admin_settings':
+      /**
+       * Extend the form with a bulk update action.
+       * Call the hook on all modules - an array of 'settings' objects is returned.
+       * @see file dgb.pathauto.inc|dgb_pathauto()
+       */
+
+      $all_settings = module_invoke_all('pathauto', 'settings');
+
+      foreach ($all_settings as $settings) {
+        $module = $settings->module;
+
+        // If the module supports bulk update, offer the update action here.
+        // Note: bulk_update, not bulkupdate.
+        if ($settings->bulk_update) {
+          $variable = 'dgb_' . $module . '_bulk_update';
+
+          if (variable_get($variable, false)) {
+            variable_set($variable, false);
+            $function = $module . '_dgb_bulk_update';
+            call_user_func($function);
+          }
+          $form[$module][$variable] = array(
+            '#type' => 'checkbox',
+            '#title' => $settings->bulk_update,
+            '#default_value' => false,
+            '#description' => $settings->bulk_updatedescr
+          );
+        }
+      }
+
+      $form['dgb']['token_help']['#description'] .= '<br />'. t('Note: Do not use activity tokens.');
+      break;
+
+    case 'search_form':
+      if ($form['module']['#value'] == 'dgb' && user_access('use advanced search')) {
+        // Keyword boxes:
+        $form['advanced'] = array(
+          '#type' => 'fieldset',
+          '#title' => t('Advanced search'),
+          '#collapsible' => true,
+          '#collapsed' => true,
+          '#attributes' => array('class' => 'search-advanced'),
+        );
+        $form['advanced']['keywords'] = array(
+          '#prefix' => '<div class="criterion">',
+          '#suffix' => '</div>',
+        );
+        $form['advanced']['keywords']['or'] = array(
+          '#type' => 'textfield',
+          '#title' => t('Containing any of the words'),
+          '#size' => 30,
+          '#maxlength' => 255,
+        );
+        $form['advanced']['keywords']['phrase'] = array(
+          '#type' => 'textfield',
+          '#title' => t('Containing the phrase'),
+          '#size' => 30,
+          '#maxlength' => 255,
+        );
+        $form['advanced']['keywords']['negative'] = array(
+          '#type' => 'textfield',
+          '#title' => t('Containing none of the words'),
+          '#size' => 30,
+          '#maxlength' => 255,
+        );
+
+        $form['advanced']['submit'] = array(
+          '#type' => 'submit',
+          '#value' => t('Advanced search'),
+          '#prefix' => '<div class="action">',
+          '#suffix' => '</div>',
+        );
+
+        $form['#validate'][] = 'dgb_search_validate';
+      }
+      break;
+  }
+}
+
+/**
+ * Form API callback for the search form. Registered in dgb_form_alter().
+ */
+function dgb_search_validate($form, &$form_state) {
+  // Initialise using any existing basic search keywords.
+  $keys = $form_state['values']['processed_keys'];
+
+  // Insert extra restrictions into the search keywords string.
+  if (isset($form_state['values']['type']) && is_array($form_state['values']['type'])) {
+    // Retrieve selected types - Forms API sets the value of unselected checkboxes to 0.
+    $form_state['values']['type'] = array_filter($form_state['values']['type']);
+    if (count($form_state['values']['type'])) {
+      $keys = search_query_insert($keys, 'type', implode(',', array_keys($form_state['values']['type'])));
+    }
+  }
+
+  if (isset($form_state['values']['category']) && is_array($form_state['values']['category'])) {
+    $keys = search_query_insert($keys, 'category', implode(',', $form_state['values']['category']));
+  }
+  if ($form_state['values']['or'] != '') {
+    if (preg_match_all('/ ("[^"]+"|[^" ]+)/i', ' '. $form_state['values']['or'], $matches)) {
+      $keys .= ' '. implode(' OR ', $matches[1]);
+    }
+  }
+  if ($form_state['values']['negative'] != '') {
+    if (preg_match_all('/ ("[^"]+"|[^" ]+)/i', ' '. $form_state['values']['negative'], $matches)) {
+      $keys .= ' -'. implode(' -', $matches[1]);
+    }
+  }
+  if ($form_state['values']['phrase'] != '') {
+    $keys .= ' "'. str_replace('"', ' ', $form_state['values']['phrase']) .'"';
+  }
+  if (!empty($keys)) {
+    form_set_value($form['basic']['inline']['processed_keys'], trim($keys), $form_state);
+  }
+}
+
+/**
+ * Menu callback to display a single guestbook entry.
+ *
+ * @param object $account
+ *   A user object.
+ * @param array $entry
+ *   A guestbook entry.
+ * @return string
+ *   The rendered guestbook entry.
+ */
+function dgb_entry($account, $entry) {
+  $output  = '';
+  $destination = dgb_get_destination();
+
+  if ($account->uid == 0) {
+    $user = new stdClass();
+    $user->uid = $account->uid;
+    $user->name = variable_get('dgb_site_title', t('Site guestbook'));
+  }
+  else {
+    $user = $account;
+  }
+
+  drupal_set_title(t('Guestbook entry of !user', array('!user' => theme('username', $user, array('plain' => true)))));
+
+  $links['guestbook'] = array(
+    'title'    => t('Show the complete guestbook'),
+    'href'     => dgb_dgb_path($user->uid),
+//    'query'    => drupal_get_destination(),
+//    'fragment' => 'entry-'. $entry['id']
+  );
+  if (preg_match('/search\/dgb/', urldecode($destination['destination']))) {
+    $links['search'] = array(
+      'title'    => 'Back to search',
+      'href'     => urldecode($destination['destination']),
+      'query'    => $destination['query'],
+    );
+  }
+
+  $output = theme('links', $links, array('class' => 'dgb-meta-links links'));
+
+  // Drupal Guestbook entry API hook.
+  dgb_invoke_dgb_entry($entry, 'view', $user);
+
+  $output .= theme('dgb_entry', $user, $entry);
+
+  return $output;
+}
+
+/**
+ * Menu callback to output a Drupal Guestbook page.
+ */
+function dgb_page($account, $op = NULL, $op_id = NULL, $page = true, $limit = false) {
+  global $user;
+
+  $dgb_mode = variable_get('dgb_mode', DGB_SITE_GUESTBOOK | DGB_USER_GUESTBOOKS);
+
+  // Prepare site guestbook.
+  if ($account->uid == 0) {
+    $account = new stdClass;
+    $account->uid = 0;
+    drupal_set_title(variable_get('dgb_site_title', t('Site guestbook')));
+  }
+
+  if (!_dgb_exists($account)) {
+    if ($page) {
+      // Users guestbook is disabled.
+      drupal_set_title(t('Guestbook of') .' '. theme('username', $account, array('plain' => true)));
+
+      if (variable_get('dgb_profile_link', 0) == 1) {
+        $profile_link = '<div class="dgb-empty dgb-view-account submitted">'. t("Visit the profile of !username", array('!username' => theme('username', $account))) .'</div>';
+      }
+      $output = $profile_link .'<div class="dgb-empty">'. t('Guestbook not available.') .'</div>';
+
+      return $output;
+    }
+    return;
+  }
+
+  // Set last visited time for own guestbook.
+  if ($account->uid > 0 && $account->uid == $user->uid) {
+    user_save($user, array('dgb_visited' => time()));
+  }
+
+  // Delete or edit a entry.
+  if (_dgb_access('moderate', $account->uid) && is_numeric($op_id)) {
+    switch ($op) {
+      case 'edit':
+        return drupal_get_form('dgb_form_entry_form', $account, 'page', $op_id);
+
+      case 'delete':
+        return dgb_delete_entry_confirm_page($account->uid, $op_id);
+    }
+  }
+
+  /**
+   *  Fetch Drupal Guestbook entries.
+   *
+   * Guestbook owner can see entries if their guestbook disabled.
+   */
+  $entries = array();
+
+  $where = 'AND g.status <> 1';
+  $where_limit = 'AND status <> 1';
+  if (($user->uid != 0 && dgb_access_dgb($user) && $user->uid == $account->uid) || user_access('moderate all guestbooks')) {
+    $where = '';
+    $where_limit = '';
+  }
+
+  if ($limit == false) {
+    $limit = variable_get('dgb_entries_per_page', 20);
+  }
+  $sql = "SELECT g.*, u1.uid, u1.name, u1.data, u1.picture, u2.name as commentby
+          FROM {dgb} g
+          LEFT JOIN {users} u1 ON g.author = u1.uid
+          LEFT JOIN {users} u2 ON g.commentauthor = u2.uid
+          WHERE g.recipient = %d ". $where ."
+          ORDER BY g.created DESC";
+
+  // The status 1 is unpublished.
+  $result = pager_query($sql, $limit, 0, "SELECT COUNT(*) FROM {dgb} WHERE recipient = %d $where_limit", $account->uid);
+
+  while ($entry = db_fetch_array($result)) {
+    $entries[] = $entry;
+  }
+
+  // Check if site guestbook and make sure the right guestbook status.
+  if ($account->uid == 0 && ($dgb_mode == 3 || $dgb_mode == 2)) {
+    $account->dgb_status = 1;
+  }
+
+  return theme('dgb', $account, $entries, $limit);
+}
+
+/**
+ * Menu callback to display the Drupal Guestbook form on a separate page.
+ */
+function dgb_page_form($account) {
+  if (!_dgb_exists($account)) {
+    drupal_not_found();
+    return;
+  }
+
+  return dgb_form_entry($account, 'page');
+}
+
+/**
+ * Menu callback to output a list of Drupal Guestbooks.
+ *
+ *   The list is limited to guest books if they:
+ *   - activated by the user
+ *   - it contains entries
+ *
+ * @return
+ *   The rendered Drupal Guestbook list page.
+ */
+function dgb_list() {
+  $limit    = 50;
+  $dgbs     = array();
+  $dgb_mode = variable_get('dgb_mode', DGB_SITE_GUESTBOOK | DGB_USER_GUESTBOOKS);
+
+  $header = array(
+    array('data' => t('User'), 'field' => 'u.name'),
+    array('data' => t('Entries'), 'field' => 'num'),
+    array('data' => t('Last update'), 'field' => 'created', 'sort' => 'desc'),
+  );
+
+  $status_string_i = 'dgb_status";i:1:"1';
+  $status_string_s = 'dgb_status";s:1:"1';
+  // Only user guestbooks with enabled status.
+  $where_user_dgb = "AND (SELECT LOCATE('". $status_string_i ."', u2.data) FROM {users} u2 WHERE u2.uid = u.uid) > 0
+                     OR (SELECT LOCATE('". $status_string_s ."', u2.data) FROM {users} u2 WHERE u2.uid = u.uid) > 0";
+  // Only if site guestbook enabled.
+  if ($dgb_mode == 3 || $dgb_mode == 1) {
+    $where_site_dgb = "OR g.recipient = 0";
+  }
+  
+  $result = pager_query(
+    "SELECT u.uid, u.name, u.data, MAX(g.created) as created, COUNT(g.recipient) as num, g.status
+    FROM {users} u 
+    LEFT OUTER JOIN {dgb} g ON u.uid = g.recipient
+    WHERE g.status <> 1 $where_user_dgb $where_site_dgb
+    GROUP BY u.uid, u.name, u.data, g.recipient". tablesort_sql($header),
+    $limit, 0, "SELECT COUNT(*) FROM {users}"
+  );
+
+  if (module_exists('realname')) {
+    $result = pager_query(
+      "SELECT u.uid, u.name, u.data, MAX(g.created) as created, COUNT(g.recipient) as num, g.status, rn.realname AS realname
+      FROM {users} u
+      LEFT JOIN {realname} rn ON rn.uid = u.uid
+      LEFT OUTER JOIN {dgb} g ON u.uid = g.recipient
+      WHERE g.status <> 1 $where_user_dgb $where_site_dgb
+      GROUP BY u.uid, u.name, u.data, g.recipient". tablesort_sql($header),
+      $limit, 0, "SELECT COUNT(*) FROM {users}"
+    );
+  }
+
+  while ($dgb = db_fetch_array($result)) {
+    if ($dgb['uid'] == 0 && user_access('access site guestbook') && $dgb_mode & DGB_SITE_GUESTBOOK) {
+      // Site guestbook.
+      $dgbs[0] = $dgb;
+    }
+    else if ($dgb['uid'] > 0 && user_access('access user guestbooks')) {
+      // User guestbooks.
+      $dgb['name'] = $dgb['realname'] ? $dgb['realname'] : $dgb['name'];
+      $dgbs[$dgb['uid']] = $dgb;
+    }
+  }
+
+  if (count($dgbs) == 0) {
+    $dgb_list = '<p>'. t('No guest books with entries available.') .'</p>';
+  }
+  else {
+    // Drupal Guestbook list alter API hook.
+    drupal_alter('dgb_list', $dgbs);
+
+    $dgb_list = theme('dgb_list', $dgbs, $header, $limit);
+  }
+
+  return $dgb_list;
+}
+
+/**
+ * Retrieve a Drupal Guestbook post form.
+ *
+ * @param object $account
+ *   A user object.
+ * @param string $display
+ *   Possible values: page
+ * @return string
+ *   The add new entry form.
+ */
+function dgb_form_entry($account, $display = '') {
+  return drupal_get_form('dgb_form_entry_form', $account, $display);
+}
+
+/**
+ * Provides the Drupal Guestbook post form.
+ *
+ * @param array $form_state
+ *   FAPI values.
+ * @param object $account
+ *   A user object.
+ * @param string $display
+ *   Optional; Possible values: page
+ * @param int $entry_id
+ *   A entry ID.
+ * @ingroup forms
+ */
+function dgb_form_entry_form($form_state, $account, $display = '', $entry_id = NULL) {
+  global $user;
+
+  $destination = dgb_get_destination();
+  $help_message = '';
+  $cancel_fragment = '';
+
+  $entry = array();
+  if (isset($entry_id) && _dgb_access('moderate', $account->uid) && user_access('moderate own guestbook')) {
+    $entry = db_fetch_array(db_query("SELECT g.*, u.name AS authorname FROM {dgb} g LEFT JOIN {users} u ON u.uid = g.author WHERE g.id = %d", $entry_id));
+  }
+
+  if (isset($entry_id)) {
+    $area_title = t('Entry');
+    $help_message = t('Edit a guestbook entry.');
+    $button_value = t('Save');
+    $cancel_fragment = 'entry-'. $entry_id;
+  }
+  else {
+    $area_title = t('New guestbook entry');
+    $button_value = t('Sign in');
+    if ($display == 'page') {
+      if ($user->uid != $account->uid && $account->uid != 0) {
+        $name = $account->realname ? $account->realname : $account->name;
+        $title = t('Guestbook of @name', array('@name' => $name));
+      }
+      elseif ($account->uid == 0) {
+        $title = variable_get('dgb_site_title', t('Site guestbook'));
+      }
+
+      drupal_set_title($title);
+    }
+  }
+
+  $form = array();
+
+  $form['help'] = array(
+    '#value' => '<p>'. $help_message .'</p>'
+  );
+
+  if (!empty($entry)) {
+    $form['entry'] = array(
+      '#type' => 'value',
+      '#value' => $entry
+    );
+    $form['entry_id'] = array(
+      '#type' => 'value',
+      '#value' => $entry['id']
+    );
+    $form['author'] = array(
+      '#type' => 'value',
+      '#value' => $entry['author']
+    );
+    $form['authorname'] = array(
+      '#type' => 'value',
+      '#value' => $entry['authorname']
+    );
+
+    // Re-route form submission to Drupal Guestbook entry edit form submit handler.
+    $form['#submit'] = array('dgb_form_entry_form_edit_submit');
+  }
+  if ($user->uid == 0 || (isset($entry['author']) && $entry['author'] == 0)) {
+    // Fields for anonymous poster.
+    $form['anonname'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Name'),
+      '#size' => 32, 
+      '#maxlength' => 64,
+      '#required' => true,
+      '#default_value' => !empty($entry['anonname']) ? $entry['anonname'] : '',
+    );
+    $anonymous_fields = (array) variable_get('dgb_anonymous_fields', array('email', 'website'));
+    $anonymous_fields = array_flip($anonymous_fields);
+    if (isset($anonymous_fields['email'])) {
+      $form['anonemail'] = array(
+        '#type' => 'textfield',
+        '#title' => t('E-mail'),
+        '#size' => 32,
+        '#maxlength' => 128,
+        '#default_value' => !empty($entry['anonemail']) ? $entry['anonemail'] : '',
+      );
+    }
+    if (isset($anonymous_fields['website'])) {
+      $form['anonwebsite'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Homepage'),
+        '#size' => 32,
+        '#maxlength' => 128,
+        '#default_value' => !empty($entry['anonwebsite']) ? $entry['anonwebsite'] : '',
+      );
+    }
+  }
+  $filter_tips = variable_get('dgb_filter_tips', true) ? _dgb_form_filter_tips() : NULL;
+  $form['dgb_entry']['message'] = array(
+    '#type' => 'textarea',
+    '#title' => $area_title,
+    '#cols' => 64,
+    '#rows' => DGB_TEXTAREA_ROWS,
+    '#description' => $filter_tips,
+    '#required' => true,
+    '#default_value' => !empty($entry['message']) ? $entry['message'] : '',
+    '#weight' => 0
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => $button_value,
+  );
+
+  // Caller is a guestbook page to edit a entry.
+  // To build the link path we don't use dgb_dgb_path($account->uid) here to
+  // make sure the compatibility with other modules - e.g Panels.
+  $cancel_link = l(t('Cancel'), urldecode($destination['destination']), array(
+      'attributes' => array('class' => 'button'),
+      'query' => $destination['query'],
+      'fragment' => $cancel_fragment
+    )
+  );
+  // Caller is a guestbook page to add a entry.
+  if (empty($destination['destination']) && preg_match('/\/sign/', $destination['path'])) {
+    $cancel_link = l(t('Cancel'), dgb_dgb_path($account->uid), array(
+        'attributes' => array('class' => 'button'),
+        'query' => $destination['query']
+      )
+    );
+  }
+
+  // Ckeck if caller a administer page.
+  $destination_string = urldecode($destination['destination']);
+  if (preg_match('/admin\//', $destination_string)) {
+    $cancel_link = l(t('Cancel'), $destination_string, array(
+        'attributes' => array('class' => 'button'),
+        'query' => $destination['query']
+      )
+    );
+  }
+
+  if ($display == 'page') {
+    $form['cancel'] = array(
+      '#value' => $cancel_link
+    );
+  }
+
+  $form['uid'] = array(
+    '#type' => 'value',
+    '#value' => $account->uid,
+  );
+  
+  if (!empty($entry)) {
+    // Need to explicitly check for moderate when editing an existing post,
+    // because FAPI will output a WSOD (NULL) otherwise.
+    $dgb_access = _dgb_access('moderate', $account->uid);
+    if ($dgb_access) {
+      $form['#access'] = true;
+    }
+    else {
+      $form['#access'] = false;
+    }
+
+    $form['access'] = array(
+      '#type' => 'value',
+      '#value' => $dgb_access
+    );
+  }
+  else {
+    $dgb_access = _dgb_access('post', $account->uid);
+    if ($dgb_access) {
+      $form['#access'] = true;
+    }
+    else {
+      $form['#access'] = false;
+    }
+
+    $form['access'] = array(
+      '#type' => 'value',
+      '#value' => $dgb_access
+    );
+  }
+  
+  if (variable_get('dgb_form_location', 'above') == 'separate page') {
+    $form['#redirect'] = !empty($_GET['destination']) ? $_GET['destination'] : dgb_dgb_path($account->uid);
+  }
+  $form['display'] = array(
+    '#type' => 'value',
+    '#value' => $display
+  );
+
+  $form['#recipient'] = $account;
+
+  if ($display == 'page') {
+    if (!isset($form['author']['#value'])) {
+      $author = $user;
+    }
+    else {
+      $author = user_load(array('uid' => $form['author']['#value']));
+    }
+    $form['#author'] = $author;
+  }
+
+  return $form;
+}
+
+/**
+ *  Validation callback for save a guestbook entry.
+ */
+function dgb_form_entry_form_validate($form, &$form_state) {
+  if (!empty($form_state['values']['anonemail'])) {
+    $error = t('The e-mail address you specified is not valid.');
+    if (function_exists('email_verify_check') && variable_get('dgb_email_verify', 0) == true) {
+      if (email_verify_check($form_state['values']['anonemail'])) {
+        form_set_error('anonemail', $error);
+      }
+    }
+    elseif (!valid_email_address($form_state['values']['anonemail'])) {
+      form_set_error('anonemail', $error);
+    }
+  }
+  if (!empty($form_state['values']['anonwebsite']) && !valid_url($form_state['values']['anonwebsite'], true) && variable_get('dgb_webite_validate_silent', 0) == 1) {
+    form_set_error('anonwebsite', t('The URL of your homepage is not valid. Remember that it must be fully qualified, i.e. of the form <code>http://example.com/directory</code>.'));
+  }
+
+  // Drupal Guestbook entry API hook are edit an exist entry.
+  if (isset($form_state['values']['entry'])) {
+    dgb_invoke_dgb_entry($form_state['values']['entry'], 'validate');
+  }
+}
+
+/**
+ * Submit callback to save a new guestbook entry.
+ */
+function dgb_form_entry_form_submit($form, &$form_state) {
+  global $user;
+
+  $type = '';
+
+  $uid = $form_state['values']['uid'];
+  $message = $form_state['values']['message'];
+
+  // Make sure this isn't a dupe.
+  $result = db_query("SELECT message FROM {dgb} WHERE recipient = %d ORDER BY id DESC LIMIT 1", $uid);
+  $entry = db_fetch_array($result);
+  if ($entry['message'] == $message) {
+    return;
+  }
+
+  // No empty entries.
+  if ($message == '') {
+    return;
+  }
+
+  if ($uid == 0) {
+    // Site guestbook.
+    $type = 'sgb';
+  }
+  else {
+    // User guestbook.
+    $type = 'ugb';
+  }
+  $default_publish_status = _dgb_get_default_publish_status($user, $type);
+
+  // Insert new entry.
+  $insert_time = time();
+
+  if ($user->uid == 0) {
+    // Anonymous user.
+    db_query("INSERT INTO {dgb} (anonname, anonemail, anonwebsite, author, recipient, message, hostname, comment, created, changed, status, comment_created, comment_changed)
+      VALUES('%s', '%s', '%s', %d, %d, '%s', '%s', '%s', %d, %d, %d, %d, %d)", $form_state['values']['anonname'], $form_state['values']['anonemail'], $form_state['values']['anonwebsite'], 0, $uid, $message, ip_address(), '', $insert_time, $insert_time, $default_publish_status, $insert_time, $insert_time);
+  }
+  else {
+    // Authenticated user.
+    db_query("INSERT INTO {dgb} (author, recipient, message, hostname, comment, created, changed, status, comment_created, comment_changed)
+      VALUES(%d, %d, '%s', '%s', '%s', %d, %d, %d, %d, %d)", $user->uid, $uid, $message, ip_address(), '', $insert_time, $insert_time, $default_publish_status, $insert_time, $insert_time);
+  }
+
+  // Notify other modules of the new Drupal Guestbook entry.
+  $entryid = db_last_insert_id('dgb', 'id');
+  $entry = db_fetch_array(db_query("SELECT g.*, u.name AS authorname FROM {dgb} g LEFT JOIN {users} u ON u.uid = g.author WHERE g.id = %d", $entryid));
+
+  $form['#entry'] = $entry;
+  $form_state['#entry'] = $entry;
+
+  $entry['recipient_obj'] = $form['#recipient'];
+  $entry['author_obj'] = $form['#author'];
+
+  // Drupal Guestbook entry API hook.
+  dgb_invoke_dgb_entry($entry, 'insert');
+  // Note: Use this after dgb_invoke_dgb_entry()
+  module_invoke_all('dgb', 'insert', $entry);
+}
+
+/**
+ * Submit handler for editing/update Drupal Guestbook entries.
+ */
+function dgb_form_entry_form_edit_submit($form, &$form_state) {
+  if (_dgb_access('moderate', $form_state['values']['uid']) == true && $form_state['clicked_button']['#id'] == 'edit-submit') {
+    if ($form_state['values']['author'] == 0) {
+      // Post's author is an anonymous user.
+      db_query("UPDATE {dgb} SET anonname = '%s', anonemail = '%s', anonwebsite = '%s', message = '%s' WHERE id = %d", $form_state['values']['anonname'], $form_state['values']['anonemail'], $form_state['values']['anonwebsite'], $form_state['values']['message'], $form_state['values']['entry_id']);
+    }
+    else if ($form_state['values']['author'] > 0) {
+      // Post's author is a registered user.
+      db_query("UPDATE {dgb} SET message = '%s', changed = %d WHERE id = %d", $form_state['values']['message'], time(), $form_state['values']['entry_id']);
+    }
+  }
+
+  // Notify other modules of the new Drupal Guestbook entry.
+  $entry = db_fetch_array(db_query("SELECT g.*, u.name AS authorname FROM {dgb} g LEFT JOIN {users} u ON u.uid = g.author WHERE g.id = %d", $form_state['values']['entry_id']));
+
+  // Drupal Guestbook entry API hook.
+  dgb_invoke_dgb_entry($entry, 'update');
+  // Note: Use this after dgb_invoke_dgb_entry()
+  module_invoke_all('dgb', 'update', $entry);
+
+  $form_state['redirect'] = dgb_dgb_path($form_state['values']['uid']);
+}
+
+/**
+ * Implementation of hook_mail().
+ */
+function dgb_mail($key, &$message, $params) {
+  global $base_url;
+
+  switch($key) {
+    case 'dgb_send_email_action':
+      /**
+       * Prepare the action module values and the e-mail for the action "DGB: Send e-mail"
+       * 
+       * @see file contrib/dgb.actions.inc|dgb_action_info()
+       */
+
+      $language = $message['language'];
+      $variables = user_mail_tokens($params['account'], $language);
+
+      // Object $account; The user who has posted the entry.
+      $account = $params['account'];
+      // Object $owner; The Drupal Guestbook owner.
+      $owner = $params['owner'];
+      $context = $params['context'];
+      $entry = $params['entry'];
+
+      $author_mailto = $account->mail;
+      $dgb_owner_name = $owner->realname ? check_plain($owner->realname) : check_plain($owner->name);
+      
+      // A anonymous entry poster.
+      if ($account->uid == 0) {
+        $author_mailto = variable_get('site_mail', ini_get('sendmail_from'));
+      }
+      // The site guestbook.
+      if ($owner->uid == 0) {
+        $dgb_owner_name = variable_get('dgb_site_title', t('Site guestbook'));
+      }
+
+      $dgb_url = $base_url .'/'. dgb_dgb_path($owner->uid);
+      $entry_message = check_markup($entry->message);
+
+      $variables = array(
+        '%site_name' => variable_get('site_name', 'Drupal'),
+        '%uri' => $base_url,
+        '%uri_brief' => preg_replace('!^https?://!', '', $base_url),
+        '%author_name' => $account->realname ? check_plain($account->realname) : check_plain($account->name),
+        '%author_mailto' => $author_mailto,
+        '%entry_short' => truncate_utf8($entry_message, 64, false, true),
+        '%entry_medium' => truncate_utf8($entry_message, 256, false, true),
+        '%entry_full' => $entry_message,
+        '%dgb_owner_name' => $dgb_owner_name,
+        '%dgb_uri' => $dgb_url,
+        '%dgb_bief' => preg_replace('!^https?://!', '', $dgb_url)
+      );
+
+      $subject = strtr(locale($context['subject'], $params['language']), $variables);
+      $subject = str_replace(array("\r", "\n"), '', $subject);
+
+      $body = strtr(locale($context['message'], $params['language']), $variables);
+      $body = drupal_html_to_text($body);
+
+      $message['subject'] .= $subject;
+      $message['body'][] = $body;
+
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function dgb_theme() {
+  return array(
+    'dgb_entry_admin_overview' => array(
+      'template' => 'theme/dgb-entry-admin-overview',
+      'arguments' => array(
+        'form' => NULL
+      ),
+    ),
+    'dgb_form_entry_form' => array(
+      'arguments' => array(
+        'form' => NULL
+      )
+    ),
+    'dgb_form_comment_form' => array(
+      'arguments' => array(
+        'content' => NULL
+      )
+    ),
+    'dgb' => array(
+      'arguments' => array(
+        'account' => NULL,
+        'entries' => NULL,
+        'limit' => NULL
+      )
+    ),
+    'dgb_entry' => array(
+      'template' => 'theme/dgb-entry',
+      'arguments' => array(
+        'user' => NULL,
+        'entry' => NULL,
+        'zebra' => NULL,
+        'confirm_delete' => NULL
+      )
+    ),
+    'dgb_user_picture' => array(
+      'arguments' => array(
+        'form' => NULL
+      )
+    ),
+    'dgb_entry_submitted' => array(
+      'template' => 'theme/dgb-entry-submitted',
+      'arguments' => array(
+        'entry' => NULL
+      )
+    ),
+    'dgb_entry_comment' => array(
+      'template' => 'theme/dgb-entry-comment',
+      'arguments' => array(
+        'user' => NULL,
+        'entry' => NULL
+      )
+    ),
+    'dgb_list' => array(
+      'arguments' => array(
+        'dgbs' => NULL,
+        'header' => NULL,
+        'limit' => NULL
+      )
+    ),
+    'dgb_latest_entries_block_list' => array(
+      'template' => 'theme/dgb-latest-entries-block-list',
+      'arguments' => array(
+        'limit' => NULL
+      )
+    )
+  );
+}
+
+/**
+ * Display the entry form.
+ */
+function theme_dgb_form_entry_form($form_state) {
+  $output  = '';
+
+  $access  = $form_state['access']['#value'];
+  $display = $form_state['display']['#value'];
+  $uid     = $form_state['uid']['#value'];
+
+  switch ($access) {
+    case 'allowed':
+      if ($display == 'link') {
+        // Output only a link to a page with the form.
+        $output .= '<p>'. l(t('Add guestbook entry'), dgb_dgb_path($uid) .'/sign') .'</p>';
+      }
+      else {
+        $output .= drupal_render($form_state);
+      }
+      break;
+
+    case 'own guestbook':
+      if (isset($form_state['entry_id'])) {
+        drupal_set_title(t('Edit guestbook entry'));
+        $output .= drupal_render($form_state);
+      }
+      else {
+        $output .= ' ';
+      }
+      break;
+
+    case 'not logged in':
+        $output .= '<p>'. t('<a href="@login">Login</a> or <a href="@register">register</a> to add or edit a entry.', array('@login' => url('user/login', array('query' => $destination)), '@register' => url('user/register', array('query' => $destination)))) .'</p>';
+      break;
+
+    case 'not allowed':
+      $output .= '<p class="links">'. t('You are not allowed to post in this guestbook.') .'</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Display the entry comment form.
+ *
+ * @param string $op
+ *   Possible values: add, edit
+ * @param int $eid
+ *   A Drupal Guestbook entry ID.
+ * @return array
+ *   The entry comment form.
+ * @see theme_dgb_entry_comment()
+ */
+function dgb_form_comment($op, $entry) {
+  global $user;
+
+  return drupal_get_form('dgb_form_comment_form', $op, $user, $entry);
+}
+
+/**
+ * Provides the entry comment form.
+ *
+ * @param array $form_state
+ *   FAPI values.
+ * @param string $op
+ *   Possible values: add, edit
+ * @param int $account
+ *   A user object. The user who add or edit the comment.
+ * @param array $entry
+ *   A Drupal Guestbook entry.
+ * @see dgb_form_comment()
+ * @ingroup forms
+ */
+function dgb_form_comment_form($form_state, $op, $account, $entry) {
+  $form = array();
+  $destination = dgb_get_destination();
+
+  $author_name = theme('username', dgb_account_object_from_entry($entry));
+
+  switch ($op) {
+    case 'add':
+      $title = t('Add entry comment');
+      $button_value = t('Add comment');
+      $comment_description = '';
+      break;
+
+    case 'edit':
+      $title = t('Edit entry comment');
+      $button_value = t('Save');
+      $comment_description = '<p>'. t('Let the comment field blank to delete a comment.') .'</p>';
+
+      $form['message'] = array(
+        '#type' => 'markup',
+        '#value' => check_markup($entry['message']),
+        '#prefix' => '<p class="submitted">'. t('Entry by') .': '. $author_name .'</p>'
+      );
+      break;
+  }
+
+  drupal_set_title($title);
+
+  $comment_description .= variable_get('dgb_filter_tips', true) ? _dgb_form_filter_tips() : NULL;
+  $form['comment'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Entry comment'),
+    '#default_value' => $entry['comment'],
+    '#description' => $comment_description
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => $button_value
+  );
+
+  // To build the link path we don't use dgb_dgb_path($entry['recipient']) here
+  // to make sure the compatibility with other modules - e.g Panels.
+  $form['cancel'] = array(
+    '#type' => 'markup',
+    '#value' => l(t('Cancel'), urldecode($destination['destination']), array(
+        'attributes' => array('class' => 'button'),
+        'query' => $destination['query'],
+        'fragment' => 'entry-'. $entry['id']
+      )
+    )
+  );
+  $form['entry_id'] = array(
+    '#type' => 'value',
+    '#value' => $entry['id']
+  );
+  $form['uid'] = array(
+    '#type' => 'value',
+    '#value' => $account->uid
+  );
+  $form['action'] = array(
+    '#type' => 'value',
+    '#value' => $op
+  );
+
+  return $form;
+}
+
+/**
+ * Submit callback to save an entry comment.
+ *
+ *   Be realized update, insert and delete actions.
+ */
+function dgb_form_comment_form_submit($form, &$form_state) {
+  global $user;
+
+  $op = $form_state['values']['action'];
+
+  if (!_dgb_access('moderate', $form_state['values']['uid'])) {
+    return;
+  }
+
+  switch ($op) {
+    case 'add':
+      $add_time = time();
+      db_query("UPDATE {dgb} SET comment = '%s', commentauthor = %d, comment_created = %d, comment_changed = %d
+                WHERE id = %d", $form_state['values']['comment'], $form_state['values']['uid'], $add_time, $add_time, $form_state['values']['entry_id']);
+      break;
+
+    case 'edit':
+      if (!empty($form_state['values']['comment'])) {
+        db_query("UPDATE {dgb} SET comment = '%s', comment_changed = %d
+                  WHERE id = %d", $form_state['values']['comment'], time(), $form_state['values']['entry_id']);
+      }
+      else {
+        db_query("UPDATE {dgb} SET comment = '%s', commentauthor = %d, comment_changed = %d
+                  WHERE id = %d", $form_state['values']['comment'], 0, time(), $form_state['values']['entry_id']);
+        $op = 'delete';
+      }
+      break;
+  }
+
+  // Notify other modules of the entry comment.
+  $entry = db_fetch_array(db_query("SELECT g.*, u.name AS authorname FROM {dgb} g LEFT JOIN {users} u ON u.uid = g.author WHERE g.id = %d", $form_state['values']['entry_id']));
+
+  // Drupal Guestbook entry comment API hook.
+  switch ($op) {
+    case 'add':
+      dgb_invoke_dgb_entry_comment($entry, 'insert');
+      break;
+
+    case 'edit':
+      dgb_invoke_dgb_entry_comment($entry, 'update');
+      break;
+
+    case 'delete':
+      dgb_invoke_dgb_entry_comment($entry, 'delete');
+      break;
+  }
+}
+
+/**
+ * Display the entry comment form.
+ *
+ * @param array $form_state
+ *   FAPI content.
+ * @return string
+ *
+ * @ingroup themeable
+ */
+function theme_dgb_form_comment_form($form_state) {
+  $output = drupal_render($form_state);
+  return $output;
+}
+
+/**
+ * Get the entry delete confirm page.
+ *
+ * @param int $uid
+ *   A user ID.
+ * @param int $entry_id
+ *  A entry ID.
+ */
+function dgb_delete_entry_confirm_page($uid, $entry_id) {
+  return drupal_get_form('dgb_delete_entry_confirm', $uid, $entry_id);
+}
+
+/**
+ * Provides the entry delete confirm page.
+ *
+ * @param array $form_state
+ *   FAPI content.
+ * @param int $uid
+ *   A user ID.
+ * @param int $entry_id
+ *   A entry ID.
+ * @ingroup forms
+ */
+function dgb_delete_entry_confirm($form_state, $uid, $entry_id) {
+  $destination = dgb_get_destination();
+
+  $entry = db_fetch_array(db_query(
+      "SELECT g.*, u1.name, u1.data, u1.picture, u2.name as commentby 
+      FROM {dgb} g
+      LEFT JOIN {users} u1 ON g.author = u1.uid
+      LEFT JOIN {users} u2 ON g.commentauthor = u2.uid
+      WHERE g.id = %d", $entry_id));
+
+  $form             = array();
+  $form['entry_id'] = array('#type' => 'value', '#value' => $entry_id);
+  $form['uid']      = array('#type' => 'value', '#value' => $uid);
+  $form['#entry']   = $entry;
+
+  // To build the link path we don't use dgb_dgb_path($entry['recipient']) here
+  // to make sure the compatibility with other modules - e.g Panels.
+  return confirm_form(
+    $form,
+    t('Are you sure you want to delete this guestbook entry?'),
+    array('path' => urldecode($destination['destination']), 'fragment' => 'entry-'. $entry['id']),
+    '<div class="confirm-entry-content">'. theme('dgb_entry_submitted', $entry) . check_markup($entry['message'], variable_get('dgb_input_format', 1), false) .'</div>',
+    t('Delete'),
+    t('Cancel')
+  );
+}
+
+/**
+ * Submit callback to delete an guestbook entry.
+ */
+function dgb_delete_entry_confirm_submit($form, &$form_state) {
+  if (_dgb_access('moderate', $form_state['values']['uid']) && $form_state['values']['confirm']) {
+    db_query("DELETE FROM {dgb} WHERE id = %d", $form_state['values']['entry_id']);
+  }
+
+  // Drupal Guestbook entry API hook.
+  $entry = $form['#entry'];
+  dgb_invoke_dgb_entry($entry, 'delete');
+
+  module_invoke_all('dgb', 'delete', $entry);
+}
+
+/**
+ * Invoke a hook_dgb_entry() operation in all modules.
+ *
+ * @param array $entry
+ *   A Drupal Guestbook entry.
+ * @param string $op
+ *   A string containing the name of the hook operation. Possible values:
+ *   - "insert": The guestbook entry is being inserted.
+ *   - "update": The guestbook entry is being updated.
+ *   - "view": The guestbook entry is being viewed.
+ *     This hook can be used to add additional data to the guestbook entry before theming.
+ *   - "validate": The user has just finished editing the guestbook entry and is trying to submit it.
+ *     This hook can be used to check or even modify the guestbook entry. Errors should be set with form_set_error().
+ *   - "delete": The guestbook entry is being deleted.
+ *   - "unpublish": The guestbook entry is being unpublished.
+ *   - "publish": The guestbook entry is being published.
+ * @param $a3, $a4
+ *   Arguments to pass on to the hook, after the $entry and $op arguments.
+ * @return
+ *   The returned value of the invoked hooks.
+ */
+function dgb_invoke_dgb_entry(&$entry, $op, $a3 = NULL, $a4 = NULL) {
+  $return = array();
+
+  foreach (module_implements('dgb_entry') as $name) {
+    $function = $name .'_dgb_entry';
+    $result = $function($entry, $op, $a3, $a4);
+    if (isset($result) && is_array($result)) {
+      $return = array_merge($return, $result);
+    }
+    else if (isset($result)) {
+      $return[] = $result;
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Invoke a hook_dgb_entry_comment() operation in all modules.
+ *
+ * @param array $entry
+ *   A Drupal Guestbook entry.
+ * @param string $op
+ *   A string containing the name of the hook operation. Possible values:
+ *   - "insert": The guestbook entry comment is being inserted.
+ *   - "update": The guestbook entry comment is being updated.
+ *     This hook can be used to add additional data to the guestbook entry before theming.
+ *   - "validate": The user has just finished editing the guestbook entry comment and is trying to submit it.
+ *     This hook can be used to check or even modify the guestbook entry. Errors should be set with form_set_error().
+ *   - "delete": The guestbook entry comment is being deleted.
+ * @param $a3, $a4
+ *   Arguments to pass on to the hook, after the $entry and $op arguments.
+ * @return
+ *   The returned value of the invoked hooks.
+ */
+function dgb_invoke_dgb_entry_comment(&$entry, $op, $a3 = NULL, $a4 = NULL) {
+  $return = array();
+
+  foreach (module_implements('dgb_entry_comment') as $name) {
+    $function = $name .'_dgb_entry_comment';
+    $result = $function($entry, $op, $a3, $a4);
+    if (isset($result) && is_array($result)) {
+      $return = array_merge($return, $result);
+    }
+    else if (isset($result)) {
+      $return[] = $result;
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Implementation of hook_dgb_entry().
+ */
+function dgb_dgb_entry(&$entry, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'update':
+      if (function_exists('search_wipe')) {
+        dgb_search_touch_entry($entry['id']);
+      }
+      break;
+    case 'insert':
+      if (function_exists('search_wipe')) {
+        dgb_search_touch_entry($entry['id']);
+      }
+      break;
+    case 'delete':
+      // Remove this entry from the search index if needed.
+      if (function_exists('search_wipe')) {
+        search_wipe($entry['id'], 'node');
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_dgb_entry_comment().
+ */
+function dgb_dgb_entry_comment(&$entry, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'update':
+      if (function_exists('search_wipe')) {
+        dgb_search_touch_entry_comment($entry['id']);
+      }
+      break;
+    case 'insert':
+      if (function_exists('search_wipe')) {
+        dgb_search_touch_entry_comment($entry['id']);
+      }
+      break;
+    case 'delete':
+      if (function_exists('search_wipe')) {
+        dgb_search_touch_entry_comment($entry['id']);
+      }
+      break;
+  }
+}
+
+/**
+ * Drupal guestbook operations. We offer different update operations depending on
+ * which entry administration page we're on.
+ *
+ * @param $action
+ *   The entry administration page.
+ * @return
+ *   An associative array containing the offered operations.
+ */
+function dgb_operations($action = NULL) {
+  if ($action == 'publish') {
+    $operations = array(
+      'publish' => array(t('Publish the selected entries'), 'UPDATE {dgb} SET status = '. DGB_ENTRY_PUBLISHED .' WHERE id = %d'),
+      'delete' => array(t('Delete the selected entries'), ''),
+    );
+  }
+  else if ($action == 'unpublish') {
+    $operations = array(
+      'unpublish' => array(t('Unpublish the selected entries'), 'UPDATE {dgb} SET status = '. DGB_ENTRY_NOT_PUBLISHED .' WHERE id = %d'),
+      'delete' => array(t('Delete the selected entries'), ''),
+    );
+  }
+  else {
+    $operations = array(
+      'publish' => array(t('Publish the selected entries'), 'UPDATE {dgb} SET status = '. DGB_ENTRY_PUBLISHED .' WHERE id = %d'),
+      'unpublish' => array(t('Unpublish the selected entries'), 'UPDATE {dgb} SET status = '. DGB_ENTRY_NOT_PUBLISHED .' WHERE id = %d'),
+      'delete' => array(t('Delete the selected entries'), ''),
+    );
+  }
+  
+  return $operations;
+}
+
+/**
+ * Load an Drupal Guestbook entry by given entry ID.
+ *
+ *   Can be used with the wildcard loader argument %dgb_entry.
+ *
+ * @param int $id
+ *   The identifying Drupal Guestbook entry id.
+ * @return array
+ */
+function dgb_entry_load($id) {
+  if (!is_numeric($id)) {
+    return false;
+  }
+  
+  $entry =  db_fetch_array(db_query('SELECT g.*, u.name AS authorname
+                                    FROM {dgb} g
+                                    LEFT JOIN {users} u ON u.uid = g.author
+                                    WHERE g.id = %d', $id));
+  if (!isset($entry)) {
+    return false;
+  }
+
+  return $entry;
+}
+
+/**
+ * Menu callback to unpublish or publish entries.
+ *
+ * @param string $op
+ *   Possible values: unpublish, publish
+ * @param array $entry
+ *   A guestbook entry.
+ */
+function dgb_publishing($op, $entry) {
+  switch ($op) {
+    case 'unpublish':
+      dgb_entry_unpublish($entry);
+      drupal_goto();
+      return;
+
+    case 'publish':
+      dgb_entry_publish($entry);
+      drupal_goto();
+      break;
+  }
+}
+
+/**
+ * Unpublish a guestbook entry.
+ *
+ * @param array $entry
+ *   A guestbook entry.
+ *
+ * @see dgb_publishing()
+ */
+function dgb_entry_unpublish($entry) {
+  db_query("UPDATE {dgb} SET status = %d WHERE id = %d", DGB_ENTRY_NOT_PUBLISHED, $entry['id']);
+
+  module_invoke_all('dgb', 'unpublish', $entry);
+}
+
+/**
+ * Publish a guestbook entry.
+ *
+ * @param array $entry
+ *   A guestbook entry.
+ *
+ * @see dgb_publishing()
+ */
+function dgb_entry_publish($entry) {
+  db_query("UPDATE {dgb} SET status = %d WHERE id = %d", DGB_ENTRY_PUBLISHED, $entry['id']);
+
+  module_invoke_all('dgb', 'publish', $entry);
+}
+
+/**
+ * Provides latest guestbook entries.
+ *
+ *   Respect disabled user guestbooks and close out their
+ *   existing entries from the list.
+ *
+ * @param int $limit
+ *   Optional the limit to get latest entries.
+ * @return array
+ *   The associative array is keyed with entry IDs and contains
+ *   as value a associative array with the entry.
+ */
+function dgb_entries_latest($limit = 5) {
+  $entries = array();
+
+  $dgb_mode = variable_get('dgb_mode', DGB_SITE_GUESTBOOK | DGB_USER_GUESTBOOKS);
+  $status_string_s = 'dgb_status";s:1:"1';
+  $status_string_i = 'dgb_status";i:1:"1';
+
+  $where = '';
+  $join = '';
+  switch ($dgb_mode) {
+    case 3:
+      // Site and user guestbooks.
+      $join = 'LEFT JOIN {users} u ON u.uid = g.recipient AND g.recipient <> 0';
+      // If the entry from a user guestbook check it is enabled.
+      $where = "AND u.data IS NULL OR (SELECT LOCATE('". $status_string_s ."', u2.data) FROM {users} u2 WHERE u2.uid = g.recipient) > 0
+                OR (SELECT LOCATE('". $status_string_i ."', u2.data) FROM {users} u2 WHERE u2.uid = g.recipient) > 0";
+      break;
+
+    case 2:
+      // User guestbooks only.
+      // Only user guestbooks with enabled status.
+      $where = "AND recipient <> 0 AND (SELECT LOCATE('". $status_string_s ."', u2.data) FROM {users} u2 WHERE u2.uid = g.recipient) > 0
+                OR (SELECT LOCATE('". $status_string_i ."', u2.data) FROM {users} u2 WHERE u2.uid = g.recipient) > 0";
+      break;
+
+    case 1:
+      // Site guestbook only.
+      $where = 'AND recipient = 0';
+      break;
+  }
+
+  $result = db_query_range("SELECT * FROM {dgb} g
+                            $join
+                            WHERE g.status = 0 $where ORDER BY g.created DESC", $limit);
+
+  while ($entry = db_fetch_array($result)) {
+    $entries[$entry['id']] = $entry;
+  }
+  
+  return $entries;
+}
+
+/**
+ * Build an user object from entry data.
+ *
+ * @param array|object $entry
+ *   A Drupal Guestbook entry.
+ * @return object
+ */
+function dgb_account_object_from_entry($entry) {
+  if (is_object($entry)) {
+    $entry = (array) $entry;
+  }
+
+  // Fake an account object.
+  $account = new stdClass();
+  $account->uid = $entry['author'];
+  if ($entry['author'] == 0 && $entry['anonname']) {
+    $account->name = $entry['anonname'];
+  }
+  else {
+    $account->name = $entry['name'] ? $entry['name'] : $entry['authorname'];
+    $account->realname = isset($entry['author_realname']) ? $entry['author_realname'] : false;
+  }
+
+  return $account;
+}
+
+/**
+ * Render a Drupal Guestbook.
+ *
+ * @ingroup themeable
+ */
+function theme_dgb($account, $entries, $limit = 20) {
+  global $user;
+
+  $dgb_mode = variable_get('dgb_mode', DGB_SITE_GUESTBOOK | DGB_USER_GUESTBOOKS);
+  $form_location = variable_get('dgb_form_location', 'above');
+  $pager_position = variable_get('dgb_pager_position', DGB_PAGER_BELOW);
+  $entries_i = count($entries);
+  $profile_link = '';
+
+  if ($user->uid != $account->uid && $account->uid != 0) {
+    $name = $account->realname ? $account->realname : $account->name;
+    $title = t('Guestbook of @name', array('@name' => $name));
+  }
+  elseif ($account->uid == 0) {
+    $title = variable_get('dgb_site_title', t('Site guestbook'));
+  }
+  else {
+    $title = t('My guestbook');
+  }
+  drupal_set_title($title);
+
+  // Intro text.
+  $intro = _dgb_info($account, 'intro');
+  $output = $intro ? check_markup($intro) : '';
+  
+  if ($_GET['q'] != 'user/'. $account->uid && variable_get('dgb_profile_link', 0) == 1) {
+    $output .= _dgb_user_profile_link($account);
+  }
+
+  // Insert a link if configured the entry form on separate page.
+  if ($form_location == 'separate page' && $account->dgb_status == true) {
+    switch ($dgb_mode) {
+      case 3:
+        if ((user_access('post in site guestbook') && $account->uid == 0) || (user_access('post in user guestbooks') && $account->uid != 0 && $account->uid != $user->uid)) {
+          $link_output = '<div class="dgb-link-add-entry"><p>'. l(t('Add a guestbook entry'), dgb_dgb_path($account->uid) .'/sign', array('attributes' => array('class' => 'dgb-add-entry'))) .'</p></div>';
+        }
+        break;
+      case 1:
+        if (user_access('post in site guestbook') && $account->uid == 0) {
+          $link_output = '<div class="dgb-link-add-entry"><p>'. l(t('Add a guestbook entry'), dgb_dgb_path($account->uid) .'/sign', array('attributes' => array('class' => 'dgb-add-entry'))) .'</p></div>';
+        }
+        break;
+
+      case 2:
+        if (user_access('post in user guestbooks') && $account->uid != 0 && $account->dgb_status) {
+          $link_output = '<div class="dgb-link-add-entry"><p>'. l(t('Add a guestbook entry'), dgb_dgb_path($account->uid) .'/sign', array('attributes' => array('class' => 'dgb-add-entry'))) .'</p></div>';
+        }
+        break;
+    }
+  }
+  $output .= $link_output;
+
+  // Form and pager above entries.
+  $output .= ($form_location == 'above' ? dgb_form_entry($account) : '');
+  $output .= ($pager_position & DGB_PAGER_ABOVE ? '<div class="dgb-pager dgb-pager-above">'. theme('pager', NULL, $limit, 0) ."</div>\n" : '');
+
+  if ($account->uid > 0) {
+    if ($account->dgb_status == false && ($account->dgb_status == false && $account->uid != $user->uid && $entries_i > 0)) {
+      if (variable_get('dgb_profile_link', 0) == 1) {
+        $profile_link = '<div class="dgb-empty dgb-view-account submitted">'. t("Visit the profile of !username", array('!username' => theme('username', $account))) ."</div>\n";
+      }
+      $output .= $profile_link;
+      if (user_access('moderate all guestbooks')) {
+        $output .= '<div class="dgb-empty">'. t('NOTE: This guestbook is disabled.') ."</div>\n";
+      }
+      else {
+        $output .= '<div class="dgb-empty">'. t('Guestbook not available.') ."</div>\n";
+      }
+    }
+    elseif ($account->dgb_status == false && $account->uid == $user->uid) {
+      $output .= $profile_link .'<div class="messages error">'. t('NOTE: Your guestbook is disabled.') ."</div>\n";
+    }
+    elseif (($account->dgb_status == true) && $entries_i == 0) {
+      $output .= '<div class="dgb-empty">'. t('Nobody has signed this guestbook yet.') ."</div>\n";
+    }
+  }
+  else {
+    if ($dgb_mode == 2) {
+      if (variable_get('dgb_profile_link', 0) == 1) {
+        $profile_link = '<div class="dgb-empty dgb-view-account submitted">'. t("Visit the profile of !username", array('!username' => theme('username', $account))) ."</div>\n";
+      }
+      $output .= $profile_link .'<div class="dgb-empty">'. t('Guestbook not available.') ."</div>\n";
+    }
+    if ($entries_i == 0) {
+      $output .= '<div class="dgb-empty">'. t('Nobody has signed this guestbook yet.') ."</div>\n";
+    }
+  }
+
+  $i = 0;
+  foreach ($entries as $entry) {
+    $zebra = ($i % 2) ? 'odd' : 'even';
+
+    // Drupal Guestbook entry API hook.
+    dgb_invoke_dgb_entry($entry, 'view', $account);
+
+    $output .= theme('dgb_entry', $account, $entry, $zebra);
+
+    ++$i;
+  }
+
+  // Form and pager below entries.
+  $output .= $pager_position & DGB_PAGER_BELOW ? '<div class="dgb-pager dgb-pager-below">'. theme('pager', NULL, $limit, 0) ."</div>\n" : '';
+  $output .= $form_location == 'below' ? dgb_form_entry($account) : '';
+
+  return '<div class="dgb">'. $output ."</div>\n";
+}
+
+/**
+ * Process variables for dgb-entry.tpl.php.
+ *
+ *   Display a Drupal Guestbook entry.
+ *
+ * @see dgb-entry.tpl.php
+ * @see theme_dgb()
+ */
+function template_preprocess_dgb_entry(&$variables) {
+  global $user;
+
+  $entry_object = (object)$variables['entry'];
+  $display = (array) variable_get('dgb_display', array('date', 'email', 'website', 'comments'));
+  $display = array_flip($display);
+
+  $variables['entry_classes'] = '';
+  $variables['eid'] = $variables['entry']['id'];
+  $variables['owner_uid'] = $variables['entry']['recipient'];
+  $variables['picture'] = theme_get_setting('toggle_dgb_entry_user_picture') ? theme('user_picture', $entry_object) : '';
+  $variables['status'] = ($variables['entry']['status'] == DGB_ENTRY_NOT_PUBLISHED) ? ' dgb-entry-unpublished' : ' dgb-entry-published';
+
+  // The submitted by line.
+  $variables['submitted'] = theme('dgb_entry_submitted', $variables['entry']);
+
+  // The Guestbook entry itself.
+  $variables['message'] = check_markup($variables['entry']['message'], variable_get('dgb_input_format', 1), false);
+
+  // Guestbook owner comment.
+  if (isset($display['comments']) && !empty($variables['entry']['comment'])) {
+    $variables['entry_comment'] = theme('dgb_entry_comment', $user, $variables['entry']);
+  }
+
+  /**
+   *  Entry links.
+   */
+  $links = array();
+
+  // Delete, edit, unpublish/publish entry.
+  if (($variables['entry']['recipient'] == $user->uid && user_access('moderate own guestbook')) || ($variables['entry']['author'] == $user->uid && user_access('moderate own guestbook')) || user_access('moderate all guestbooks')) {
+    $destination = drupal_get_destination();
+    $links['delete'] = array(
+      'title'    => t('Delete entry'),
+      'href'     => dgb_dgb_path($variables['entry']['recipient']) .'/delete/'. $variables['entry']['id'],
+      'query'    => $destination,
+      'fragment' => 'entry-'. $variables['entry']['id']
+    );
+    $links['edit'] = array(
+      'title'    => t('Edit entry'),
+      'href'     => dgb_dgb_path($variables['entry']['recipient']) .'/edit/'. $variables['entry']['id'],
+      'query'    => $destination,
+      'fragment' => 'entry-'. $variables['entry']['id']
+    );
+    // Unpublish or publish.
+    if ($user->uid == 1 || $user->uid == $variables['entry']['recipient'] || user_access('moderate all guestbooks')) {
+      if ($variables['entry']['status'] == 0) {
+        $links['unpublish'] = array(
+          'title'    => t('Unpuplish entry'),
+          'href'     => dgb_dgb_path($variables['entry']['recipient']) .'/unpublish/'. $variables['entry']['id'],
+          'query'    => $destination,
+          'fragment' => 'entry-'. $variables['entry']['id']
+        );
+      }
+      else {
+        $links['publish'] = array(
+          'title'    => t('Puplish entry'),
+          'href'     => dgb_dgb_path($variables['entry']['recipient']) .'/publish/'. $variables['entry']['id'],
+          'query'    => $destination,
+          'fragment' => 'entry-'. $variables['entry']['id']
+        );
+      }
+    }
+  }
+
+  // Add comment.
+  if (($user->uid > 0 && ($variables['entry']['recipient'] == $user->uid && user_access('moderate own guestbook')) || user_access('moderate all guestbooks'))) {
+    if ($variables['entry']['comment'] == '') {
+      $comment_title = t('Add comment');
+      $comment_href = 'drupal-guestbook/comment/add/'. $variables['entry']['id'];
+    }
+    else {
+      $comment_title = t('Edit comment');
+      $comment_href = 'drupal-guestbook/comment/edit/'. $variables['entry']['id'];
+    }
+
+    $links['comment-add'] = array(
+      'title'    => $comment_title,
+      'href'     => $comment_href,
+      'query'    => drupal_get_destination(),
+      'fragment' => 'entry-'. $variables['entry']['id']
+    );
+  }
+
+  // Drupal Guestbook entry link alter API hook.
+  drupal_alter('dgb_entry_link', $links, $variables['entry']);
+
+  $variables['links_source'] = $links;
+
+  $dgb_entry_link_classes = 'dgb-links';
+
+  // Drupal Guestbook entry link classes alter API hook.
+  drupal_alter('dgb_entry_link_classes', $dgb_entry_link_classes);
+
+  $variables['links'] = theme('links', $links, array('class' => $dgb_entry_link_classes));
+}
+
+/**
+ * Process variables for dgb-entry-comment.tpl.php.
+ *
+ *   Display the comment of a Drupal Guestbook entry.
+ *
+ * @see dgb-entry-comment.tpl.php
+ * @see template_preprocess_dgb_entry()
+ */
+function template_preprocess_dgb_entry_comment(&$variables) {
+  // Fake an account object.
+  $commenter = new stdClass();
+  $commenter->uid = $variables['entry']['commentauthor'];
+  $commenter->name = $variables['entry']['commentby'];
+
+  $variables['submitted'] = t('Comment by') .' '. theme('username', $commenter);
+  $variables['comment'] = check_markup($variables['entry']['comment'], variable_get('dgb_input_format', 1), false);
+}
+
+/**
+ * Process variables for dgb-latest-entries-block-list.tpl.php.
+ *
+ *   Display the sub title and the list of newest entries in
+ *   the 'Guestbooks newest entries' block.
+ *
+ * @see dgb-latest-entries-block-list.tpl.php
+ * @see dgb_block()
+ */
+function template_preprocess_dgb_latest_entries_block_list(&$variables) {
+  $entries = dgb_entries_latest($variables['limit']);
+
+  if (count($entries) > 0) {
+    $items = array();
+    $variables['sub_title'] = t('Newest entries');
+
+    foreach ($entries as $entry) {
+      $title = truncate_utf8($entry['message'], 48, false, true);
+      $items[$entry['id']] = l(check_plain($title), 'drupal-guestbook/'. $entry['recipient'] .'/'. $entry['id']);
+    }
+    $variables['items'] = $items;
+    $variables['entry_list'] = theme('item_list', $items);
+  }
+}
+
+/**
+ * Theme the entry admin form page.
+ *
+ * @ingroup themeable
+ */
+function template_preprocess_dgb_entry_admin_overview($variables) {
+  $rows = array();
+
+  if (isset($variables['form']['subject']) && is_array($variables['form']['subject'])) {
+    foreach (element_children($variables['form']['subject']) as $key) {
+      $row = array();
+      $row[] = drupal_render($variables['form']['guestbook_entries'][$key]);
+      $row[] = drupal_render($variables['form']['subject'][$key]);
+      $row[] = drupal_render($variables['form']['username'][$key]);
+      $row[] = drupal_render($variables['form']['recipient'][$key]);
+      $row[] = drupal_render($variables['form']['gb_status'][$key]);
+      $row[] = drupal_render($variables['form']['created'][$key]);
+      $row[] = drupal_render($variables['form']['operations'][$key]);
+      $rows[] = $row;
+    }
+  }
+  else {
+    $rows[] = array('', array('data' => t('No entries available.'), 'colspan' => '6'));
+  }
+
+  // Other variables.
+  $variables['setting_exinclude'] = variable_get('dgb_admin_content_exinclude', 0);
+  $variables['setting_rows'] = variable_get('dgb_admin_content_rows', 50);
+  $variables['current_rows'] = count($rows);
+
+  $variables['destination'] = $variables['form']['destination']['#value'];
+
+  // Content variables.
+  $variables['content_options'] = drupal_render($variables['form']['options']);
+
+  if ($variables['current_rows'] >= 50) {
+    $variables['content_top_jump'] = '<div id="table-top-jump"></div>';
+    $variables['content_top_jump'] .= '<div id="jump-to-below" class="jump-pointer">'. t('Jump to below') .'</div>';
+    
+    $variables['content_below_jump'] = '<div id="jump-to-top" class="jump-pointer">'. t('Jump to top') .'</div>';
+    $variables['content_below_jump'] .= '<div id="table-below-jump"></div>';
+  }
+
+  $variables['content_table'] = l('', '', array('attributes' => array('class' => 'get-link-color')));
+  $variables['content_table'] .= theme('table', $variables['form']['header']['#value'], $rows);
+
+  $variables['content_exinclude'] = drupal_render($variables['form']['dgb_admin_exinclude']);
+  $variables['content_rows'] = drupal_render($variables['form']['dgb_admin_rows']);
+  $variables['content_pager'] = '';
+  if ($variables['form']['pager']['#value']) {
+    $variables['content_pager'] = drupal_render($variables['form']['pager']);
+  }
+  $variables['content_form'] = drupal_render($variables['form']);
+
+  unset($rows);
+  unset($variables['form']);
+}
+
+/**
+ * Theme a "Submitted by ..." notice.
+ *
+ * @see template_preprocess_dgb_entry(), dgb_delete_entry_confirm()
+ *
+ * @ingroup themeable
+ */
+function template_preprocess_dgb_entry_submitted($variables) {
+  $entry_object = (object) $variables['entry'];
+  $display = (array) variable_get('dgb_display', array('date', 'email', 'website', 'comments'));
+  $display = array_flip($display);
+  $account = dgb_account_object_from_entry($variables['entry']);
+
+  $variables['eid'] = $variables['entry']['id'];
+  $variables['owner_uid'] = $variables['entry']['recipient'];
+
+  // Author.
+  $variables['author_id'] = $variables['entry']['author'];
+  if ($variables['entry']['author'] == 0) {
+    $variables['author_name'] = '<span class="dgb-anonymous-poster">'. check_plain($variables['entry']['anonname']) .'</span>';
+  }
+  else {
+    $variables['author_name'] = theme('username', $entry_object, 'dgb');
+  }
+  // Date, e-mail, website.
+  if (isset($display['date'])) {
+    $variables['created'] = format_date($variables['entry']['created'], 'medium');
+    $variables['submitted'] = t('By !username on @datetime',
+      array(
+        '!username' => $variables['author_name'],
+        '@datetime' => format_date($variables['entry']['created'])
+      ));
+  }
+  else {
+    $variables['submitted'] = t('By !username',
+      array(
+        '!username' => $variables['author_name']
+      ));
+  }
+
+  $variables['anonemail'] = false;
+  if (isset($display['email']) && !empty($variables['entry']['anonemail'])) {
+    $variables['anonemail'] = '&nbsp;|&nbsp;<a href="mailto:'. check_url($variables['entry']['anonemail']) .'">'. t('E-mail') .'</a>';
+  }
+
+  $variables['anonwebsite'] = false;
+  if (isset($display['website']) && !empty($variables['entry']['anonwebsite'])) {
+    // Auto-prepend HTTP protocol if website contains no protocol.
+    if (!preg_match("/\:\/\//", $variables['entry']['anonwebsite'])) {
+      $variables['anonwebsite'] = 'http://'. $variables['entry']['anonwebsite'];
+    }
+    $variables['anonwebsite'] = '&nbsp;|&nbsp;<a href="'. check_url($variables['anonwebsite']) .'">'. t('Website') .'</a>&nbsp;';
+  }
+}
+
+/**
+ * Display a list with Drupal Guestbooks.
+ *
+ * @param array $dgbs
+ *   The guestbooks to display.
+ * @param array $header
+ *   Contains the table header data for theme_table().
+ * @param int $limit
+ *   A pager value.
+ * @see dgb_list()
+ * @ingroup themeable
+ */
+function theme_dgb_list($dgbs, $header, $limit = 50) {
+  $output = '';
+
+  // Site guestbook.
+  if (isset($dgbs[0])) {
+    $output .= '<div class="dgb-link-site-guestbook"><p>'. l(variable_get('dgb_site_title', t('Site guestbook')), 'site-guestbook');
+    $output .= ' ('. format_plural($dgbs[0]['num'], '1 entry', '@count entries') .', '. t('last update') .': '. _dgb_timeinterval($dgbs[0]['created']) .')</p></div>';
+    unset($dgbs[0]);
+  }
+  // User guestbooks.
+  if (count($dgbs)) {
+    $output .= '<h4>'. t('User guestbooks') .'</h4>';
+    $rows = array();
+    foreach ($dgbs as $dgb) {
+      $rows[] = array(
+        l(check_plain($dgb['name']), dgb_dgb_path($dgb['uid'])),
+        $dgb['num'],
+        array('data' => _dgb_timeinterval($dgb['created'])),
+      );
+    }
+    $output .= theme('table', $header, $rows, array('class' => 'table-dgb-list'));
+  }
+  $output .= theme('pager', NULL, $limit, 0);
+
+  return $output;
+}
+
+/**
+ * Include all Guestbook include files.
+ */
+function _dgb_include() {
+  static $included = false;
+  if (!$included) {
+    module_load_include('inc', 'dgb', '/contrib/dgb.pathauto');
+    module_load_include('inc', 'pathauto', '/pathauto');
+    module_load_include('inc', 'dgb', '/contrib/dgb.token');
+    module_load_include('inc', 'dgb', '/contrib/dgb.activity');
+    module_load_include('inc', 'dgb', '/contrib/dgb.trigger');
+    module_load_include('inc', 'dgb', '/contrib/dgb.actions');
+    module_load_include('inc', 'dgb', '/contrib/dgb.author-pane');
+  }
+}
+
+/**
+ * Prepare a destination query string for use in combination with drupal_goto().
+ *
+ *   Special/mainly usage to build URL's from pager pages.
+ *
+ * @return array
+ *   The associative array containing the values
+ *   path | value
+ *   destination | value
+ *   query | value
+ * @see dgb_form_entry_form(), dgb_form_comment_form()
+ */
+function dgb_get_destination() {
+  if (isset($_REQUEST['destination'])) {
+    $data['path'] = $_REQUEST['q'];
+
+    if (preg_match('/\?page/', $_REQUEST['destination'])) {
+      $e = explode('?', $_REQUEST['destination']);
+      $data['destination'] = urlencode($e[0]);
+      $data['query'] = $e[1];
+    }
+    else {
+      $data['destination'] = urlencode($_REQUEST['destination']);
+      $data['query'] = false;
+    }
+    return $data;
+  }
+  else {
+    // Use $_GET here to retrieve the original path in source form.
+    $data['path'] = isset($_GET['q']) ? $_GET['q'] : '';
+    $params = dgb_get_query_parameters();
+
+    if (preg_match('/\?page/', $params['destination'])) {
+      $e = explode('?', $params['destination']);
+      $data['destination'] = urlencode($e[0]);
+      $data['query'] = $e[1];
+    }
+    elseif ($params['page']) {
+      $data['destination'] = urlencode($data['path'] .'?page='. $params['page']);
+      $data['query'] = 'page='. (int) $params['page'];
+    }
+    else {
+      $data['destination'] = urlencode($params['destination']);
+      $data['query'] = false;
+    }
+    return $data;
+  }
+}
+
+/**
+ * Process a URL query parameter array to remove unwanted elements.
+ *
+ * @param array $query
+ *   (optional) An array to be processed. Defaults to $_GET.
+ * @param array $exclude
+ *   (optional) A list of $query array keys to remove.
+ *   Use "parent[child]" to exclude nested items. Defaults to array('q').
+ * @param $parent
+ *   $parent Internal use only. Used to build the $query array key for nested items.
+ * @return array
+ *   An array containing query parameters, which can be used for url().
+ * @see dgb_get_destination()
+ */
+function dgb_get_query_parameters(array $query = NULL, array $exclude = array('q'), $parent = '') {
+  // Set defaults, if none given.
+  if (!isset($query)) {
+    $query = $_GET;
+  }
+  // If $exclude is empty, there is nothing to filter.
+  if (empty($exclude)) {
+    return $query;
+  }
+  elseif (!$parent) {
+    $exclude = array_flip($exclude);
+  }
+
+  $params = array();
+  foreach ($query as $key => $value) {
+    $string_key = ($parent ? $parent . '[' . $key . ']' : $key);
+    if (isset($exclude[$string_key])) {
+      continue;
+    }
+
+    if (is_array($value)) {
+      $params[$key] = drupal_get_query_parameters($value, $exclude, $string_key);
+    }
+    else {
+      $params[$key] = $value;
+    }
+  }
+
+  return $params;
+}
+
+/**
+ * Provides the title and/or the intro text of the Drupal Guestbook specified by user account.
+ *
+ * @param object $account
+ *   A user object.
+ * @param string $data
+ *   Possible values: title, intro
+ * @return string
+ *  The guestbook title string and/or the guestbook intro text if exists.
+ * @see dgb_menu(), theme_dgb(), _dgb_exists(),
+ */
+function _dgb_info($account, $data, $reset = false) {
+  global $user;
+  static $info;
+
+  $dgb_mode = variable_get('dgb_mode', DGB_SITE_GUESTBOOK | DGB_USER_GUESTBOOKS);
+  $uid = $account->uid;
+
+  if (!isset($info[$uid]) || $reset) {
+    if ($uid == 0 && ($dgb_mode & DGB_SITE_GUESTBOOK)) {
+      $info[$uid]['title'] = variable_get('dgb_site_title', t('Site guestbook'));
+      $info[$uid]['intro'] = variable_get('dgb_site_intro', '');
+    }
+    else if ($dgb_mode & DGB_USER_GUESTBOOKS) {
+      $dgb_user = ($uid != $user->uid ? $account : $user);
+
+      if ($dgb_user->uid && ($dgb_user->status || user_access('administer users')) && $dgb_user->dgb_status == true) {
+        $info[$uid]['status'] = true;
+
+        if ($uid != $user->uid) {
+          // Drupal Guestbook of other users.
+          $info[$uid]['title'] = t('Guestbook');
+          $info[$uid]['intro'] = !empty($dgb_user->dgb_intro) ? $dgb_user->dgb_intro : '';
+        }
+        else {
+          // Own guestbook.
+          $unread = _dgb_newentries();
+
+          $info[$uid]['title'] = t('My guestbook') . ($unread ? ' ('. $unread .')' : '');
+          $info[$uid]['intro'] = !empty($dgb_user->dgb_intro) ? $dgb_user->dgb_intro : '';
+        }
+      }
+      else {
+        $info[$uid]['status'] = false;
+        $info[$uid]['intro'] = false;
+
+        // Drupal Guestbook of other users.
+        if ($uid != $user->uid) {
+          $info[$uid]['title'] = t('Guestbook');
+        }
+        else {
+          // Own guestbook.
+          $info[$uid]['title'] = t('My guestbook');
+        }
+      }
+      return $info[$uid][$data];
+    }
+  }
+
+  return $info[$uid][$data];
+}
+
+/**
+ * Provides a link to the profile of the Drupal Guestbook owner if context allows it.
+ *
+ * @param object $dgb_user
+ *   A user object.
+ * @return string
+ *   The rendered link to the owner profile page.
+ * @see theme_dgb()
+ */
+function _dgb_user_profile_link($dgb_user) {
+  global $user;
+
+  $dgb_mode = variable_get('dgb_mode', DGB_SITE_GUESTBOOK | DGB_USER_GUESTBOOKS);
+  $output = '';
+
+  if ($dgb_mode & DGB_USER_GUESTBOOKS && user_access('access user profiles') && $dgb_user->uid != $user->uid) {
+    if ($dgb_user->uid && $dgb_user->dgb_status == true) {
+      $output .= '<div class="dgb-view-account submitted">'. t("Visit the profile of !username", array('!username' => theme('username', $dgb_user))) ."</div>\n";
+    }
+  }
+  
+  return $output;
+}
+
+/**
+ * Provides the Drupal Guestbook path for a given uid.
+ *
+ * @param int $uid
+ *   A user ID.
+ * @return string
+ *   The path to user or site guestbook.
+ */
+function dgb_dgb_path($uid = 0) {
+  $uid = (int) $uid;
+
+  if ($uid > 0) {
+    $gpath = 'user/'. $uid .'/dguestbook';
+  }
+  else {
+    $gpath = 'site-guestbook';
+  }
+  
+  return $gpath;
+}
+
+/**
+ * Check if exists the Drupal Guestbook specified by a user account.
+ * 
+ * @param int $account
+ *   A user object.
+ * @return boolean
+ * @see dgb_page(), dgb_page_form()
+ */
+function _dgb_exists($account) {
+  $title = false;
+  $title = _dgb_info($account, 'title');
+
+  return !empty($title);
+}
+
+/**
+ * Returns if current user is allowed to perform $action in Drupal Guestbook $uid.
+ *
+ * @param string $action
+ *   Possible values: post, moderate
+ * @param int $uid
+ *   A user ID.
+ * @return string|boolean
+ */
+function _dgb_access($action, $uid) {
+  global $user;
+  static $access;
+
+  switch ($action) {
+    case 'post':
+    case 'moderate':
+      // Check whether user has sufficient permissions to post in this guestbook.
+      if (($uid == 0 ? user_access('post in site guestbook') : user_access('post in user guestbooks'))) {
+        // Check whether an authenticated user tries to post in own guestbook,
+        // allowing to post to others only.
+        if (!($user->uid == $uid && $user->uid > 0)) {
+          $access = 'allowed';
+        }
+        // User is either anonymous and tries to post in site guestbook,
+        // or an authenticated user tries to post in own guestbook.
+        else {
+          $access = 'own guestbook';
+        }
+      }
+      else if ($user->uid == 0) {
+        $access = 'not logged in';
+      }
+      else if ($user->uid != $uid) {
+        $access = 'not allowed';
+      }
+      break;
+  }
+
+  return $access;
+}
+
+/**
+ * Returns a string representation of a time interval.
+ *
+ * @param string $time
+ *   A timestamp.
+ * @see theme_dgb_list()
+ */
+function _dgb_timeinterval($time) {
+  if ($time == 0) {
+    return t('never');
+  }
+  else {
+    return format_interval(time() - $time, 1);
+  }
+}
+
+/**
+ * Fetches number of new entries for current user.
+ *
+ * @return int
+ *   The count result of counted entries.
+ * @see _dgb_info()
+ */
+function _dgb_newentries() {
+  global $user;
+  $count = db_result(db_query("SELECT COUNT(created) FROM {dgb} WHERE status <> 0 AND recipient = %d AND created > %d", $user->uid, isset($user->dgb_visited) ? $user->dgb_visited : time()));
+  return $count;
+}
+
+/**
+ * Provides the filter tips for entry forms.
+ *
+ * @return string
+ *   The rendered filter tips.
+ * @see dgb_form_entry_form(), dgb_form_comment_form()
+ */
+function _dgb_form_filter_tips() {
+  $format = variable_get('dgb_input_format', 1);
+  $tips = theme('filter_tips', _filter_tips($format));
+
+  return $tips;
+}
+
+/**
+ * Provides roles for default publishing status of new guestbook entries.
+ *
+ * @return array
+ *   An associative array with the role id as the key and the role name as value.
+ */
+function _dgb_user_roles() {
+  return array(
+    DRUPAL_ANONYMOUS_RID => t('anonymous user'),
+    DRUPAL_AUTHENTICATED_RID => t('authenticated user'),
+  );
+}
+
+/**
+ * Returns the default published status for guestbooks.
+ *
+ * @param <object $user
+ *   A user object.
+ * @param string $type
+ *   Guestbook type. Allowed values:
+ *   sgb - Site guestbook
+ *   ugb - User guestbook
+ *
+ * @return int
+ *   0 - DGB_ENTRY_PUBLISHED
+ *   1 - DGB_ENTRY_NOT_PUBLISHED
+ */
+function _dgb_get_default_publish_status($user, $type) {
+  $status = DGB_ENTRY_PUBLISHED;
+
+  if (isset($user->roles[1])) {
+    if (variable_get('dgb_'. $type .'_default_publish_1', 1) == 0) {
+      $status = DGB_ENTRY_NOT_PUBLISHED;
+    }
+  }
+  else {
+    if (variable_get('dgb_'. $type .'_default_publish_2', 1) == 0) {
+      $status = DGB_ENTRY_NOT_PUBLISHED;
+    }
+  }
+
+  return $status;
+}
+
+/**
+ * @ingroup ctools_support Panels support.
+ * @{
+ */
+
+/**
+ * Implementation of hook_ctools_plugin_directory().
+ */
+function dgb_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'ctools') {
+    return 'panels/plugins/' . $plugin;
+  }
+}
+
+/**
+ * @} End of "ingroup ctools_support"
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function dgb_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#dgb':
+      $author_pane =
+'<?php /* Drupal Guestbook */ ?>
+<?php if (!empty($dgb_link)): ?>
+  <div class="author-pane-line dgb">
+    <?php print $dgb_link; ?>
+  </div>
+<?php endif; ?>';
+
+      $output = '<p>'. t('The Drupal Guestbook (DGB) module allows visitors to post in the site and user guestbooks. Registered users can activate or deactivate their guestbook.') .'</p>';
+      $output .= '<p>'. t('DGB permissions are assigned to user roles, and are used to determine whether anonymous users (or other roles) are allowed to post guestbook entries. The DGB module uses the same input formats and HTML tags available when creating other forms of content.') .'</p>';
+      $output .= '<h3>'. t('Send e-mail') .'</h3>';
+      $output .= '<p>'. t('Different e-mails to different recipients are can sent, if an entry is created, changed, deleted or displayed.') .' ';
+      $output .= t('In order to be able to send e-mails, activate the optional core module <em>Trigger</em>.') .'<br />';
+      $output .= t('If the Trigger module enabled administer <em>Actions</em> and use the three DGB actions to make new advanced actions available. The action <em>DGB: Send e-mail</em> allows to configure Drupal Guestbook trigger to send e-mails.') .'</p>';
+      $output .= '<h3>'. t('Author Pane') .'</h3>';
+      $output .= '<p>'. t('Include this code in your file author-pane.tpl.php.') .'</p>';
+      $output .= '<pre>'. htmlentities($author_pane).'</pre>';
+      return $output;
+    case 'admin/content/dgb':
+      $output = '<p>'. t("Below is a list of the latest entries posted to your site. Click on a subject to see the entry, the author's name to edit the author's user information, the guestbook name to see the guestbook or 'edit' to modify the text. Use the 'Update options' for further actions with the entries.") .'</p>';
+      return $output;
+    case 'admin/content/dgb/approval':
+      $output = '<p>'. t("Below is a list of the unpublished entries posted to your site. To publish a entry, use the update option 'Publish the selected entries'. Click on a subject to see the entry, the author's name to edit the author's user information or 'edit' to modify the text. Use the 'Update options' for further actions with the entries.") .'</p>';
+      return $output;
+    case 'admin/settings/dgb':
+      return '<p>'. t('Adds a site guestbook and individual user guestbooks.') .'</p>';
+  }
+}
