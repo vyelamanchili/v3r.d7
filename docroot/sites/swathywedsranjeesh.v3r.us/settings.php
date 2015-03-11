@@ -88,8 +88,8 @@
  *   $db_url = 'mysqli://username:password@localhost/databasename';
  *   $db_url = 'pgsql://username:password@localhost/databasename';
  */
-$db_url = 'mysql://v3r:Ranjureetu59@mysql.v3r.us/v3r_swr_drupal';
-$db_prefix = '';
+//$db_url = 'mysql://v3r:Ranjureetu59@mysql.v3r.us/v3r_swr_drupal';
+//$db_prefix = '';
 
 /**
  * Database default collation.
@@ -256,3 +256,6 @@ ini_set('url_rewriter.tags',        '');
 #   'forum'      => 'Discussion board',
 #   '@count min' => '@count minutes',
 # );
+if (file_exists('/var/www/site-php')) {
+  require '/var/www/site-php/v3r/v3r_swr_drupal-settings.inc';
+}
