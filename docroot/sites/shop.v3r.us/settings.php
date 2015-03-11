@@ -89,8 +89,8 @@
  *   $db_url = 'mysqli://username:password@localhost/databasename';
  *   $db_url = 'pgsql://username:password@localhost/databasename';
  */
-$db_url = 'mysql://v3r:ranjureetu@mysql.v3r.us/v3r_shop_drupal';
-$db_prefix = 'drupal_v3rshop_';
+//$db_url = 'mysql://v3r:ranjureetu@mysql.v3r.us/v3r_shop_drupal';
+//$db_prefix = 'drupal_v3rshop_';
 
 /**
  * Access control for update.php script
@@ -237,3 +237,6 @@ ini_set('url_rewriter.tags',        '');
 #   'forum'      => 'Discussion board',
 #   '@count min' => '@count minutes',
 # );
+if (file_exists('/var/www/site-php')) {
+  require '/var/www/site-php/v3r/v3r_shop_drupal-settings.inc';
+}
