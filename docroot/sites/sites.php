@@ -54,4 +54,9 @@
  * @see http://drupal.org/documentation/install/multi-site
  */
 $sites['swathywedssranjeesh.v3r.us'] = 'swathywedssranjeesh.v3r.us';
+$sites['swathywedssranjeesh.v3rdev.devcloud.acquia-sites.com'] = 'swathywedssranjeesh.v3r.us';
+$sites['swathywedssranjeesh.v3rtest.devcloud.acquia-sites.com'] = 'swathywedssranjeesh.v3r.us';
+
 $sites['shop.v3r.us'] = 'shop.v3r.us';
+$sites['shop.v3rdev.devcloud.acquia-sites.com'] = 'shop.v3r.us';
+$sites['shop.v3rtest.devcloud.acquia-sites.com'] = 'shop.v3r.us';
