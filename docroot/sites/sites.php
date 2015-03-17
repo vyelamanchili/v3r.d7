@@ -53,3 +53,5 @@
  * @see conf_path()
  * @see http://drupal.org/documentation/install/multi-site
  */
+$sites['swathywedssranjeesh.v3r.us'] = 'swathywedssranjeesh.v3r.us';
+$sites['shop.v3r.us'] = 'shop.v3r.us';
