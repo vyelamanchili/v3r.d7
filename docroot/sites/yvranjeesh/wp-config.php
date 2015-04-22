@@ -25,7 +25,7 @@ define('DB_USER', 'v3r');
 define('DB_PASSWORD', 'Ranjureetu59');
 
 /** MySQL hostname */
-define('DB_HOST', 'mysql.v3r.us');
+define('DB_HOST', '127.0.0.1);
 
 /** Database Charset to use in creating database tables. */
 define('DB_CHARSET', 'utf8');
