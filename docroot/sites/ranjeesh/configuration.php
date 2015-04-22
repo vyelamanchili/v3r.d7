@@ -12,7 +12,7 @@ class JConfig {
 	public $debug = '0';
 	public $debug_lang = '0';
 	public $dbtype = 'mysql';
-	public $host = '127.0.0.1';
+	public $host = 'localhost';
 	public $user = 'v3r';
 	public $password = 'Ranjureetu59';
 	public $db = 'v3r_ranjeesh_joomla';
