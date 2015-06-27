@@ -1,0 +1,15 @@
+/* $Id:*/
+
+.dgb_table-extras, #edit-dgb-admin-exinclude-wrapper, #edit-dgb-admin-rows-wrapper {
+  display: inline;
+  float: left;
+}
+.dgb_table-extras {
+  margin: 0 1.5em 0 0;
+}
+.dgb_table-extras select {
+  max-width: inherit;
+}
+.jump-pointer {
+  cursor: pointer;
+}

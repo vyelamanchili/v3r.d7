@@ -1,0 +1,18 @@
+@charset "utf-8";
+/* CSS Document */
+
+#mbda_social_network_updates_block {
+/*	padding-left:28px;*/	
+}
+
+.twitter_block_li{
+	color:#000;
+/*	list-style-image: url(twitter.jpg) ;
+	list-style-position:outside;*/
+	list-style: none ;
+	background-image:url(twitter.jpg);
+	background-position:0px 2px;
+	background-repeat:no-repeat;
+	padding-left:30px;
+	
+}

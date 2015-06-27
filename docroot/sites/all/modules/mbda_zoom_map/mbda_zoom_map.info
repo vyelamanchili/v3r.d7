@@ -1,0 +1,7 @@
+; $Id: mbda_zoom_map.info,v 1.0.0.0 2010/06/07 00:00:00 vyelamanchili Exp $
+name = MBDA Zoom Map
+description = Regional Offices Map in AJAX
+core = 6.x
+version = 6.x-1.0
+project = mbda_zoom_map
+package = MBDA Modules
