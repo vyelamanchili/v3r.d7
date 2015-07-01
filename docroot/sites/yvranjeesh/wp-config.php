@@ -16,6 +16,8 @@
 
 // ** MySQL settings - You can get this info from your web host ** //
 /** The name of the database for WordPress */
+define('WP_CACHE', true); //Added by WP-Cache Manager
+define( 'WPCACHEHOME', '/var/www/html/v3r.us/docroot/sites/yvranjeesh/wp-content/plugins/wp-super-cache/' ); //Added by WP-Cache Manager
 define('DB_NAME', 'v3r_yvranjeesh_wordpress');
 
 /** MySQL database username */
@@ -25,7 +27,7 @@ define('DB_USER', 'v3r');
 define('DB_PASSWORD', 'Ranjureetu59');
 
 /** MySQL hostname */
-define('DB_HOST', 'mysql.v3r.us');
+define('DB_HOST', 'localhost');
 
 /** Database Charset to use in creating database tables. */
 define('DB_CHARSET', 'utf8');

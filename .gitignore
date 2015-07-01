@@ -1,3 +1,4 @@
+/docroot/sites/v3r.dev.dd/
 # Ignore configuration files that may contain sensitive information.
 sites/*/*settings*.php
 
