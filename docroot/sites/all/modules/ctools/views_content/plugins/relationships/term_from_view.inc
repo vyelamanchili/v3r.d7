@@ -1,5 +1,4 @@
 <?php
-// $Id: term_from_view.inc,v 1.1.2.1 2010/07/20 00:17:09 merlinofchaos Exp $
 
 /**
  * @file
@@ -14,10 +13,10 @@ $plugin = array(
   'title' => t('Term from view'),
   'keyword' => 'term',
   'description' => t('Extract a term context from a view context of the base type term.'),
-  'required context' => new ctools_context_required(t('View'), 'view', array('base' => 'term_data')),
+  'required context' => new ctools_context_required(t('View'), 'view', array('base' => 'taxonomy_term_data')),
   'context' => 'views_content_term_from_view_context',
-  'settings form' => 'views_content_term_from_view_settings_form',
-  'settings form validate' => 'views_content_term_from_view_settings_form_validate',
+  'edit form' => 'views_content_term_from_view_settings_form',
+  'edit form validate' => 'views_content_term_from_view_settings_form_validate',
   'defaults' => array('row' => 1),
 );
 
@@ -27,7 +26,7 @@ $plugin = array(
 function views_content_term_from_view_context($context, $conf, $placeholder = FALSE) {
   // If unset it wants a generic, unfilled context, which is just NULL.
   if (empty($context->data) || $placeholder) {
-    return ctools_context_create_empty('term', NULL);
+    return ctools_context_create_empty('entity:taxonomy_term', NULL);
   }
   $view = views_content_context_get_view($context);
   // Ensure the view executes, but we don't need its output.
@@ -37,17 +36,18 @@ function views_content_term_from_view_context($context, $conf, $placeholder = FA
   if (isset($view->result[$row])) {
     $tid = $view->result[$row]->{$view->base_field};
     if ($tid) {
-      $term = taxonomy_get_term($tid);
-      return ctools_context_create('term', $term);
+      $term = taxonomy_term_load($tid);
+      return ctools_context_create('entity:taxonomy_term', $term);
     }
   }
-  return ctools_context_create_empty('term', NULL);
+  return ctools_context_create_empty('entity:taxonomy_term', NULL);
 }
 
 /**
  * Settings form for the relationship.
  */
-function views_content_term_from_view_settings_form($conf) {
+function views_content_term_from_view_settings_form($form, &$form_state) {
+  $conf = $form_state['conf'];
   $form['row'] = array(
     '#title' => t('Row number'),
     '#type' => 'textfield',
@@ -57,8 +57,8 @@ function views_content_term_from_view_settings_form($conf) {
   return $form;
 }
 
-function views_content_term_from_view_settings_form_validate($form, &$form_values, &$form_state) {
-  if (intval($form_values['row']) <= 0) {
+function views_content_term_from_view_settings_form_validate($form, &$form_state) {
+  if (intval($form_state['values']['row']) <= 0) {
     form_error($form['row'], t('Row number must be a positive integer value.'));
   }
 }

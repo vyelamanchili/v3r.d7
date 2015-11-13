@@ -48,18 +48,20 @@
  * @see simplenews_subscriptions_account_form_validate()
  * @see simplenews_subscriptions_account_form_submit()
  */
-function simplenews_subscriptions_account_form(&$form_state, $account) {
-  $subscription = simplenews_get_subscription($account);
+function simplenews_subscriptions_account_form(&$form, &$form_state, $subscriber) {
 
-  $form = array();
   $options = array();
   $default_value = array();
 
   // Get newsletters for subscription form checkboxes.
   // Newsletters with opt-in/out method 'hidden' will not be listed.
-  foreach (simplenews_get_newsletters(variable_get('simplenews_vid', '')) as $newsletter) {
-    $options[$newsletter->tid] = check_plain($newsletter->name);
+  foreach (simplenews_category_get_visible() as $newsletter) {
+    $options[$newsletter->tid] = check_plain(_simplenews_newsletter_name($newsletter));
     $default_value[$newsletter->tid] = FALSE;
+  }
+
+  if ($subscriber) {
+    $default_value = array_merge($default_value, $subscriber->tids);
   }
 
   $form['subscriptions'] = array(
@@ -69,17 +71,14 @@ function simplenews_subscriptions_account_form(&$form_state, $account) {
   $form['subscriptions']['newsletters'] = array(
     '#type' => 'checkboxes',
     '#options' => $options,
-    '#default_value' => array_merge($default_value, (array)$subscription->tids),
+    '#default_value' => $default_value,
   );
 
-  $form['subscriptions']['#title'] =  t('Current newsletter subscriptions');
+  $form['subscriptions']['#title'] = t('Current newsletter subscriptions');
 
   // if we don't override #validate, see user_profile_form_validate
-
   // adding an own #submit leads to the situation where drupal omits execution of user_profile_form_submit completely
   $form['#submit'][] = 'simplenews_subscriptions_account_form_submit';
-
-  return $form;
 }
 
 /**
@@ -87,8 +86,8 @@ function simplenews_subscriptions_account_form(&$form_state, $account) {
  */
 function simplenews_subscriptions_account_form_submit($form, &$form_state) {
   global $user;
-  // Get current subscriptions if any. Defined in user_profile_form
-  $account = $form_state['values']['_account'];
+
+  $account = $form['#user'];
 
   // We first subscribe, then unsubscribe. This prevents deletion of subscriptions
   // when unsubscribed from the
@@ -101,7 +100,7 @@ function simplenews_subscriptions_account_form_submit($form, &$form_state) {
       simplenews_unsubscribe_user($account->mail, $tid, FALSE, 'website');
     }
   }
-  if ($user->uid==$account->uid) {
+  if ($user->uid == $account->uid) {
     drupal_set_message(t('Your newsletter subscriptions have been updated.'));
   }
   else {
@@ -117,7 +116,7 @@ function simplenews_subscriptions_account_form_submit($form, &$form_state) {
  * @see simplenews_block_form_validate()
  * @see simplenews_block_form_submit()
  */
-function simplenews_block_form(&$form_state, $tid) {
+function simplenews_block_form($form, &$form_state, $tid) {
   global $user;
   $form = array();
 
@@ -126,24 +125,24 @@ function simplenews_block_form(&$form_state, $tid) {
     if (simplenews_user_is_subscribed($user->mail, $tid)) {
       $submit_text = t('Unsubscribe');
       $form['action'] = array('#type' => 'value', '#value' => 'unsubscribe');
-      $form['#attributes'] = array('class' => 'simplenews-unsubscribe');
+      $form['#attributes'] = array('class' => array('simplenews-unsubscribe'));
     }
     else {
       $form['action'] = array('#type' => 'value', '#value' => 'subscribe');
-      $form['#attributes'] = array('class' => 'simplenews-subscribe');
+      $form['#attributes'] = array('class' => array('simplenews-subscribe'));
     }
     $form['mail'] = array('#type' => 'value', '#value' => $user->mail);
   }
   else {
     $form['mail'] = array(
       '#type' => 'textfield',
-      '#title' => t('Email'),
+      '#title' => t('E-mail'),
       '#size' => 20,
       '#maxlength' => 128,
       '#required' => TRUE,
     );
     $form['action'] = array('#type' => 'value', '#value' => 'subscribe');
-    $form['#attributes'] = array('class' => 'simplenews-subscribe');
+    $form['#attributes'] = array('class' => array('simplenews-subscribe'));
   }
 
   // All block forms use the same validate and submit function.
@@ -161,34 +160,28 @@ function simplenews_block_form(&$form_state, $tid) {
 /*
  * FAPI BLOCK subscription form_validate.
  */
+
 function simplenews_block_form_validate($form, &$form_state) {
-  if (!simplenews_valid_email_address($form_state['values']['mail'])) {
-    form_set_error('mail', t("The email address you supplied is not valid."));
+  if (!valid_email_address($form_state['values']['mail'])) {
+    form_set_error('mail', t("The e-mail address you supplied is not valid."));
   }
 }
 
 /*
  * FAPI BLOCK subscription form_submit.
  */
-function simplenews_block_form_submit($form, &$form_state) {
-  global $user;
-  $tid = $form['#tid'];
-  $account = _simplenews_user_load($form_state['values']['mail']);
 
-  // If email belongs to the current registered user, don't send confirmation.
-  // Other addresses receive a confirmation if double opt-in is selected.
-  if ($account->uid && $account->uid == $user->uid) {
-    $confirm = FALSE;
-  }
-  else {
-    $confirm = variable_get('simplenews_opt_inout_'. $tid, 'double') == 'double';
-  }
+function simplenews_block_form_submit($form, &$form_state) {
+  $tid = $form['#tid'];
+  $account = simplenews_load_user_by_mail($form_state['values']['mail']);
+
+  $confirm = simplenews_require_double_opt_in($tid, $account);
 
   switch ($form_state['values']['action']) {
     case 'subscribe':
       simplenews_subscribe_user($form_state['values']['mail'], $tid, $confirm, 'website');
       if ($confirm) {
-        drupal_set_message(t('You will receive a confirmation email shortly containing further instructions on how to complete your subscription.'));
+        drupal_set_message(t('You will receive a confirmation e-mail shortly containing further instructions on how to complete your subscription.'));
       }
       else {
         drupal_set_message(t('You have been subscribed.'));
@@ -197,7 +190,7 @@ function simplenews_block_form_submit($form, &$form_state) {
     case 'unsubscribe':
       simplenews_unsubscribe_user($form_state['values']['mail'], $tid, $confirm, 'website');
       if ($confirm) {
-        drupal_set_message(t('You will receive a confirmation email shortly containing further instructions on how to cancel your subscription.'));
+        drupal_set_message(t('You will receive a confirmation e-mail shortly containing further instructions on how to cancel your subscription.'));
       }
       else {
         drupal_set_message(t('You have been unsubscribed.'));
@@ -212,10 +205,22 @@ function simplenews_block_form_submit($form, &$form_state) {
  * @see simplenews_subscriptions_page_form_validate()
  * @see simplenews_subscriptions_page_form_submit()
  */
-function simplenews_subscriptions_page_form(&$form_state) {
+function simplenews_subscriptions_page_form($form, &$form_state, $code = NULL) {
   global $user;
 
-  $subscription = simplenews_get_subscription($user);
+  $subscriber = $mail = FALSE;
+  if (!empty($user->mail)) {
+    $subscriber = simplenews_subscriber_load_by_mail($user->mail);
+    $mail = $user->mail;
+  }
+  // If a hash is provided, try to load the corresponding subscriber.
+  elseif ($code) {
+    if (!$subscriber = simplenews_subscriber_load_by_hash($code)) {
+      drupal_not_found();
+      return;
+    }
+    $mail = $subscriber->mail;
+  }
 
   $form = array();
   $options = array();
@@ -223,26 +228,33 @@ function simplenews_subscriptions_page_form(&$form_state) {
 
   // Get newsletters for subscription form checkboxes.
   // Newsletters with opt-in/out method 'hidden' will not be listed.
-  foreach (simplenews_get_newsletters(variable_get('simplenews_vid', '')) as $newsletter) {
-    $options[$newsletter->tid] = check_plain($newsletter->name);
+  foreach (simplenews_category_get_visible() as $newsletter) {
+    $options[$newsletter->tid] = check_plain(_simplenews_newsletter_name($newsletter));
     $default_value[$newsletter->tid] = FALSE;
+  }
+
+  if ($subscriber) {
+    // If there is an existing subscriber object, use the existing settings.
+    $default_value = array_merge($default_value, $subscriber->tids);
   }
 
   $form['subscriptions'] = array(
     '#type' => 'fieldset',
-    '#description' => t('Select the newsletter(s) to which you want to subscribe or unsubscribe.'),
   );
   $form['subscriptions']['newsletters'] = array(
     '#type' => 'checkboxes',
     '#options' => $options,
-    '#default_value' => array_merge($default_value, (array)$subscription->tids),
+    '#default_value' => $default_value
   );
 
-  // If current user is logged in, just display email.
-  // Anonymous users see an email box and will receive confirmations
-  if ($subscription->mail) {
-    $form['subscriptions']['#title'] = t('Subscriptions for %mail', array('%mail' => $subscription->mail));
-    $form['subscriptions']['mail'] = array('#type' => 'value', '#value' => $subscription->mail);
+  // If we have a mail address, which is either from a logged in user or a
+  // subscriber identified through the hash code, display the mail address
+  // instead of a textfield. Anonymous uses will still have to confirm any
+  // changes.
+  if ($mail) {
+    $form['subscriptions']['#title'] = t('Subscriptions for %mail', array('%mail' => $mail));
+    $form['subscriptions']['#description'] = t('Check the newsletters you want to subscribe to. Uncheck the ones you want to unsubscribe from.');
+    $form['subscriptions']['mail'] = array('#type' => 'value', '#value' => $mail);
     $form['update'] = array(
       '#type' => 'submit',
       '#value' => t('Update'),
@@ -252,9 +264,10 @@ function simplenews_subscriptions_page_form(&$form_state) {
   }
   else {
     $form['subscriptions']['#title'] = t('Manage your newsletter subscriptions');
+    $form['subscriptions']['#description'] = t('Select the newsletter(s) to which you want to subscribe or unsubscribe.');
     $form['subscriptions']['mail'] = array(
       '#type' => 'textfield',
-      '#title' => t('email'),
+      '#title' => t('E-mail'),
       '#size' => 20,
       '#maxlength' => 128,
       '#weight' => 10,
@@ -284,21 +297,14 @@ function simplenews_subscriptions_page_form(&$form_state) {
  * FAPI PAGE subscription form_validate.
  */
 function simplenews_subscriptions_page_form_validate($form, &$form_state) {
-  global $user;
-  $valid_email = simplenews_valid_email_address($form_state['values']['mail']);
+  $valid_email = valid_email_address($form_state['values']['mail']);
   if (!$valid_email) {
-    form_set_error('mail', t('The email address you supplied is not valid.'));
+    form_set_error('mail', t('The e-mail address you supplied is not valid.'));
   }
-  if (isset($user->mail) && $user->mail == $form_state['values']['mail']) {
-    $account = $user;
-  }
-  else {
-    $account = (object) array('mail' => $form_state['values']['mail']);
-  }
-  $subscription = simplenews_get_subscription($account);
 
   $checked_newsletters = array_filter($form_state['values']['newsletters']);
-  if (!count($checked_newsletters) && !$subscription->uid) {
+  // Unless we're in update mode, at least one checkbox must be checked.
+  if (!count($checked_newsletters) && $form_state['values']['op'] != t('Update')) {
     form_set_error('newsletters', t('You must select at least one newsletter.'));
   }
 }
@@ -307,13 +313,11 @@ function simplenews_subscriptions_page_form_validate($form, &$form_state) {
  * FAPI PAGE subscription form_submit.
  */
 function simplenews_subscriptions_page_form_submit($form, &$form_state) {
-  global $user;
-  if (isset($user->mail) && $user->mail == $form_state['values']['mail']) {
-    $account = $user;
-  }
-  else {
-    $account = (object) array('mail' => $form_state['values']['mail']);
-  }
+  $mail = $form_state['values']['mail'];
+  $account = simplenews_load_user_by_mail($mail);
+
+  // Group confirmation mails as necessary and configured.
+  simplenews_confirmation_combine(TRUE);
 
   switch ($form_state['values']['op']) {
     case t('Update'):
@@ -321,51 +325,47 @@ function simplenews_subscriptions_page_form_submit($form, &$form_state) {
       // when unsubscribed from the
       arsort($form_state['values']['newsletters'], SORT_NUMERIC);
       foreach ($form_state['values']['newsletters'] as $tid => $checked) {
+        $confirm = simplenews_require_double_opt_in($tid, $account);
         if ($checked) {
-          simplenews_subscribe_user($form_state['values']['mail'], $tid, FALSE, 'website');
+          simplenews_subscribe_user($mail, $tid, $confirm, 'website');
         }
         else {
-          simplenews_unsubscribe_user($form_state['values']['mail'], $tid, FALSE, 'website');
+          simplenews_unsubscribe_user($mail, $tid, $confirm, 'website');
         }
       }
-      drupal_set_message(t('The newsletter subscriptions for %mail have been updated.', array('%mail' => $form_state['values']['mail'])));
-      break;
-    case t('Subscribe'):
-      $confirm_any = FALSE;
-      foreach ($form_state['values']['newsletters'] as $tid => $checked) {
-        $confirm = FALSE;
-        if ($checked) {
-          if (empty($account->uid)) {
-            $confirm = variable_get('simplenews_opt_inout_'. $tid, 'double') == 'double';
-            $confirm_any |= $confirm;
-          }
-          simplenews_subscribe_user($form_state['values']['mail'], $tid, $confirm, 'website');
-        }
-      }
-      if ($confirm_any) {
-        drupal_set_message(t('You will receive a confirmation email shortly containing further instructions on how to complete your subscription.'));
+      if (simplenews_confirmation_send_combined()) {
+        drupal_set_message(t('You will receive a confirmation e-mail shortly containing further instructions on how to complete your subscription.'));
       }
       else {
-        drupal_set_message(t('You were added to the chosen mailing list.'));
+        drupal_set_message(t('The newsletter subscriptions for %mail have been updated.', array('%mail' => $form_state['values']['mail'])));
+      }
+      break;
+    case t('Subscribe'):
+      foreach ($form_state['values']['newsletters'] as $tid => $checked) {
+        if ($checked) {
+          $confirm = simplenews_require_double_opt_in($tid, $account);
+          simplenews_subscribe_user($mail, $tid, $confirm, 'website');
+        }
+      }
+      if (simplenews_confirmation_send_combined()) {
+        drupal_set_message(t('You will receive a confirmation e-mail shortly containing further instructions on how to complete your subscription.'));
+      }
+      else {
+        drupal_set_message(t('The newsletter subscriptions for %mail have been updated.', array('%mail' => $form_state['values']['mail'])));
       }
       break;
     case t('Unsubscribe'):
-      $confirm_any = FALSE;
       foreach ($form_state['values']['newsletters'] as $tid => $checked) {
-        $confirm = FALSE;
         if ($checked) {
-          if (!$account->uid) {
-            $confirm = variable_get('simplenews_opt_inout_'. $tid, 'double') == 'double';
-            $confirm_any |= $confirm;
-          }
-          simplenews_unsubscribe_user($form_state['values']['mail'], $tid, $confirm, 'website');
+          $confirm = simplenews_require_double_opt_in($tid, $account);
+          simplenews_unsubscribe_user($mail, $tid, $confirm, 'website');
         }
       }
-      if ($confirm_any) {
-        drupal_set_message(t('You will receive a confirmation email shortly containing further instructions on how to cancel your subscription.'));
+      if (simplenews_confirmation_send_combined()) {
+        drupal_set_message(t('You will receive a confirmation e-mail shortly containing further instructions on how to cancel your subscription.'));
       }
       else {
-        drupal_set_message(t('You were added to the chosen mailing list.'));
+        drupal_set_message(t('The newsletter subscriptions for %mail have been updated.', array('%mail' => $form_state['values']['mail'])));
       }
       break;
   }
@@ -379,11 +379,10 @@ function simplenews_subscriptions_page_form_submit($form, &$form_state) {
  * @see simplenews_subscriptions_multi_block_form_validate()
  * @see simplenews_subscriptions_multi_block_form_submit()
  */
-function simplenews_subscriptions_multi_block_form(&$form_state) {
+function simplenews_subscriptions_multi_block_form($form, &$form_state) {
   global $user;
 
-  $subscription = simplenews_get_subscription($user);
-
+  $subscriber = !empty($user->mail) ? simplenews_subscriber_load_by_mail($user->mail) : FALSE;
   // If someone not authorized to edit their subscription, return empty form.
   if (!user_access('subscribe to newsletters')) {
     return;
@@ -395,22 +394,27 @@ function simplenews_subscriptions_multi_block_form(&$form_state) {
 
   // Get newsletters for subscription form checkboxes.
   // Newsletters with opt-in/out method 'hidden' will not be listed.
-  foreach (simplenews_get_newsletters(variable_get('simplenews_vid', '')) as $newsletter) {
-    $options[$newsletter->tid] = check_plain($newsletter->name);
+  foreach (simplenews_category_get_visible() as $newsletter) {
+    $options[$newsletter->tid] = check_plain(_simplenews_newsletter_name($newsletter));
     $default_value[$newsletter->tid] = FALSE;
+  }
+
+  if ($subscriber) {
+    // If there is an existing subscriber object, use the existing settings.
+    $default_value = array_merge($default_value, $subscriber->tids);
   }
 
   $form['newsletters'] = array(
     '#type' => 'checkboxes',
     '#options' => $options,
-    '#default_value' => array_merge($default_value, (array)$subscription->tids),
+    '#default_value' => $default_value,
   );
 
   // If current user is logged in, just display email.
   // Anonymous users see an email box and will receive confirmations
-  if ($subscription->mail) {
+  if (user_is_logged_in()) {
     // @todo why not simply Manage your subscriptions?
-    $form['mail'] = array('#type' => 'value', '#value' => $subscription->mail);
+    $form['mail'] = array('#type' => 'value', '#value' => $user->mail);
     $form['update'] = array(
       '#type' => 'submit',
       '#value' => t('Update'),
@@ -421,7 +425,7 @@ function simplenews_subscriptions_multi_block_form(&$form_state) {
   else {
     $form['mail'] = array(
       '#type' => 'textfield',
-      '#title' => t('Email'),
+      '#title' => t('E-mail'),
       '#size' => 20,
       '#maxlength' => 128,
       '#weight' => 10,
@@ -463,61 +467,104 @@ function simplenews_subscriptions_multi_block_form(&$form_state) {
  * @see simplenews_confirm_add_form()
  * @see simplenews_confirm_removal_form()
  */
+
+/**
+ * Menu callback: confirm the user's (un)subscription request
+ *
+ * This function is called by clicking the confirm link in the confirmation
+ * email or the unsubscribe link in the footer of the newsletter. It handles
+ * both subscription addition and subscription removal.
+ *
+ * @see simplenews_confirm_add_form()
+ * @see simplenews_confirm_removal_form()
+ *
+ * @todo Add parameter description here.
+ */
 function simplenews_confirm_subscription() {
   $arguments = func_get_args();
-  // add or remove
-  $op1 = array_shift($arguments);
-  // private key hash
-  $op2 = array_shift($arguments);
-
-  $md5 = drupal_substr($op2, 0, 10);
-  list($snid, $tid) = explode('t', drupal_substr($op2, 10));
-
-  $result = db_query('
-    SELECT snid, mail
-    FROM {simplenews_subscriptions}
-    WHERE snid = %d',
-    $snid);
-  if (!($subs = db_fetch_object($result))) {
-    drupal_not_found();
-    return;
-  }
+  $op = array_shift($arguments);
+  $code = array_shift($arguments);
 
   // Prevent search engines from indexing this page.
-  drupal_set_html_head('<meta name="robots" content="noindex" />');
+  $noindex = array(
+    '#tag' => 'meta',
+    '#attributes' => array(
+      'name' => 'robots',
+      'content' => 'noindex',
+    ),
+  );
+  drupal_add_html_head($noindex, 'simplenews-noindex');
 
-  if ($md5 == drupal_substr(md5($subs->mail . simplenews_private_key()), 0, 10)) {
-    $newsletter = taxonomy_get_term($tid);
+  if ($subscriber = simplenews_subscriber_load_by_hash($code)) {
+    // Extract the category id.
+    list($snid, $tid) = explode('t', drupal_substr($code, 10));
+    if ($tid > 0) {
+      $category = simplenews_category_load($tid);
+    }
     // The confirmation page called with two arguments will display a confirmation question.
     // When called with three of more arguments the user will be directed to the
     // (un)subscribe confirmation page. The additional arguments will be passed on
     // to the confirmation page.
     if (empty($arguments)) {
-      if ($op1 == 'remove') {
-        return drupal_get_form('simplenews_confirm_removal_form', $subs->mail, $newsletter);
+      if ($op == 'remove') {
+        return drupal_get_form('simplenews_confirm_removal_form', $subscriber->mail, $category);
       }
-      elseif ($op1 == 'add') {
-        return drupal_get_form('simplenews_confirm_add_form', $subs->mail, $newsletter);
+      elseif ($op == 'add') {
+        return drupal_get_form('simplenews_confirm_add_form', $subscriber->mail, $category);
+      }
+      elseif ($op == 'combined') {
+        // Redirect and display message if no changes are available.
+        if (empty($subscriber->changes)) {
+          drupal_set_message(t('All changes to your subscriptions where already applied. No changes made.'));
+          drupal_goto(variable_get('site_frontpage', 'node'));
+        }
+        else {
+          return drupal_get_form('simplenews_confirm_multi_form', $subscriber);
+        }
       }
     }
     else {
-      if ($op1 == 'remove') {
-        simplenews_unsubscribe_user($subs->mail, $tid, FALSE, 'website');
+      if ($op == 'remove') {
+        simplenews_unsubscribe_user($subscriber->mail, $tid, FALSE, 'website');
         if ($path = variable_get('simplenews_confirm_unsubscribe_page', '')) {
-          $path = $path .'/'. implode('/', $arguments);
+          $path = $path . '/' . implode('/', $arguments);
           drupal_goto($path);
         }
-        drupal_set_message(t('%user was unsubscribed from the %newsletter mailing list.', array('%user' => $subs->mail, '%newsletter' => $newsletter->name)));
+        drupal_set_message(t('%user was unsubscribed from the %newsletter mailing list.', array('%user' => $subscriber->mail, '%newsletter' => _simplenews_newsletter_name($category))));
         drupal_goto(variable_get('site_frontpage', 'node'));
       }
-      elseif ($op1 == 'add') {
-        simplenews_subscribe_user($subs->mail, $tid, FALSE, 'website');
+      elseif ($op == 'add') {
+        simplenews_subscribe_user($subscriber->mail, $tid, FALSE, 'website');
         if ($path = variable_get('simplenews_confirm_subscribe_page', '')) {
-          $path = $path .'/'. implode('/', $arguments);
+          $path = $path . '/' . implode('/', $arguments);
           drupal_goto($path);
         }
-        drupal_set_message(t('%user was added to the %newsletter mailing list.', array('%user' => $subs->mail, '%newsletter' => $newsletter->name)));
+        drupal_set_message(t('%user was added to the %newsletter mailing list.', array('%user' => $subscriber->mail, '%newsletter' => _simplenews_newsletter_name($category))));
         drupal_goto(variable_get('site_frontpage', 'node'));
+      }
+      elseif ($op == 'combined') {
+        // Redirect and display message if no changes are available.
+        if (empty($subscriber->changes)) {
+          drupal_set_message(t('All changes to your subscriptions where already applied. No changes made.'));
+          drupal_goto(variable_get('site_frontpage', 'node'));
+        }
+        else {
+          foreach ($subscriber->changes as $tid => $action) {
+            if ($action == 'subscribe') {
+              simplenews_subscribe_user($subscriber->mail, $tid, FALSE, 'website');
+            }
+            elseif ($action == 'unsubscribe') {
+              simplenews_unsubscribe_user($subscriber->mail, $tid, FALSE, 'website');
+            }
+          }
+
+          // Clear changes.
+          $subscriber->changes = array();
+          simplenews_subscriber_save($subscriber);
+
+          drupal_set_message(t('Subscription changes confirmed for %user.', array('%user' => $subscriber->mail)));
+          drupal_goto(variable_get('site_frontpage', 'node'));
+        }
       }
     }
   }
@@ -528,36 +575,81 @@ function simplenews_confirm_subscription() {
 }
 
 /**
- * FAPI CONFIRM ADD form.
+ * Generate the confirm subscription form.
  *
  * @see simplenews_confirm_add_form_submit()
  */
-function simplenews_confirm_add_form(&$form_state, $mail, $newsletter) {
+function simplenews_confirm_add_form($form, &$form_state, $mail, $newsletter) {
   $form = array();
-  $form['question'] = array('#value' => '<p>'. t('Are you sure you want to add %user to the %newsletter mailing list?', array('%user' => simplenews_mask_mail($mail), '%newsletter' => $newsletter->name)) ."<p>\n");
-  $form['mail'] = array('#type' => 'value', '#value' => $mail);
-  $form['newsletter'] = array('#type' => 'value', '#value' => $newsletter);
-  $form['#redirect'] = variable_get('simplenews_confirm_subscribe_page', '');
+  $form['question'] = array(
+    '#markup' => '<p>' . t('Are you sure you want to add %user to the %newsletter mailing list?', array('%user' => simplenews_mask_mail($mail), '%newsletter' => _simplenews_newsletter_name($newsletter))) . "<p>\n",
+  );
+  $form['mail'] = array(
+    '#type' => 'value',
+    '#value' => $mail,
+  );
+  $form['newsletter'] = array(
+    '#type' => 'value',
+    '#value' => $newsletter,
+  );
 
-  return confirm_form($form,
-    t('Confirm subscription'),
-    '',
-    t('You will receive %newsletter mails.', array('%newsletter' => $newsletter->name)),
-    t('Subscribe'),
-    t('Cancel')
+  return confirm_form($form, t('Confirm subscription'), '', t('You can always unsubscribe later.'), t('Subscribe'), t('Cancel')
   );
 }
 
-/**
- * FAPI CONFIRM ADD form_submit.
- */
 function simplenews_confirm_add_form_submit($form, &$form_state) {
   simplenews_subscribe_user($form_state['values']['mail'], $form_state['values']['newsletter']->tid, FALSE, 'website');
 
-  // Display message if user is directed to the front page.
-  if (!$form['#redirect']) {
-    drupal_set_message(t('%user was added to the %newsletter mailing list.', array('%user' => $form_state['values']['mail'], '%newsletter' => $form_state['values']['newsletter']->name)));
+  if (!$path = variable_get('simplenews_confirm_subscribe_page', '')) {
+    $path = variable_get('site_frontpage', 'node');
+    drupal_set_message(t('%user was added to the %newsletter mailing list.', array('%user' => $form_state['values']['mail'], '%newsletter' => _simplenews_newsletter_name($form_state['values']['newsletter']))));
   }
+
+  $form_state['redirect'] = $path;
+}
+
+/**
+ * Generate the confirm subscription form.
+ *
+ * @see simplenews_confirm_add_form_submit()
+ */
+function simplenews_confirm_multi_form($form, &$form_state, $subscriber) {
+  $form = array();
+  $form['question'] = array(
+    '#markup' => '<p>' . t('Are you sure you want to confirm the following subscription changes for %user?', array('%user' => simplenews_mask_mail($subscriber->mail))) . "<p>\n",
+  );
+
+  $form['changes'] = array(
+    '#theme' => 'item_list',
+    '#items' => simplenews_confirmation_get_changes_list($subscriber),
+  );
+
+  $form['subscriber'] = array(
+    '#type' => 'value',
+    '#value' => $subscriber,
+  );
+
+  return confirm_form($form, t('Confirm subscription'), '', t('You can always change your subscriptions later.'), t('Confirm'), t('Cancel')
+  );
+}
+
+function simplenews_confirm_multi_form_submit($form, &$form_state) {
+  $subscriber = $form_state['values']['subscriber'];
+  foreach ($subscriber->changes as $tid => $action) {
+    if ($action == 'subscribe') {
+      simplenews_subscribe_user($subscriber->mail, $tid, FALSE, 'website');
+    }
+    elseif ($action == 'unsubscribe') {
+      simplenews_unsubscribe_user($subscriber->mail, $tid, FALSE, 'website');
+    }
+  }
+
+  // Clear changes.
+  $subscriber->changes = array();
+  simplenews_subscriber_save($subscriber);
+
+  drupal_set_message(t('Subscription changes confirmed for %user.', array('%user' => $subscriber->mail)));
+  $form_state['redirect'] = variable_get('site_frontpage', 'node');
 }
 
 /**
@@ -582,35 +674,37 @@ function simplenews_mask_mail($mail) {
 }
 
 /**
- * FAPI CONFIRM REMOVAL form.
+ * Generate the confirm unsubscription form.
  *
  * @see simplenews_confirm_removal_form_submit()
  */
-function simplenews_confirm_removal_form(&$form_state, $mail, $newsletter) {
+function simplenews_confirm_removal_form($form, &$form_state, $mail, $newsletter) {
   $form = array();
-  $form['question'] = array('#value' => '<p>'. t('Are you sure you want to remove %user from the %newsletter mailing list?', array('%user' => simplenews_mask_mail($mail), '%newsletter' => $newsletter->name)) ."<p>\n");
-  $form['mail'] = array('#type' => 'value', '#value' => $mail);
-  $form['newsletter'] = array('#type' => 'value', '#value' => $newsletter);
-  $form['#redirect'] = variable_get('simplenews_confirm_unsubscribe_page', '');
+  $form['question'] = array(
+    '#markup' => '<p>' . t('Are you sure you want to remove %user from the %newsletter mailing list?', array('%user' => simplenews_mask_mail($mail), '%newsletter' => _simplenews_newsletter_name($newsletter))) . "<p>\n",
+  );
+  $form['mail'] = array(
+    '#type' => 'value',
+    '#value' => $mail,
+  );
+  $form['newsletter'] = array(
+    '#type' => 'value',
+    '#value' => $newsletter,
+  );
 
-  return confirm_form($form,
-    t('Confirm remove subscription'),
-    '',
-    t('You will no longer receive %newsletter mails.', array('%newsletter' => $newsletter->name)),
-    t('Unsubscribe'),
-    t('Cancel')
+  return confirm_form($form, t('Confirm remove subscription'), '', t('This action will unsubscribe you from the newsletter mailing list.'), t('Unsubscribe'), t('Cancel')
   );
 }
 
-/**
- * FAPI CONFIRM REMOVAL form_submit.
- */
 function simplenews_confirm_removal_form_submit($form, &$form_state) {
   simplenews_unsubscribe_user($form_state['values']['mail'], $form_state['values']['newsletter']->tid, FALSE, 'website');
-  // Display message if user is directed to the front page.
-  if (!$form['#redirect']) {
-    drupal_set_message(t('%user was unsubscribed from the %newsletter mailing list.', array('%user' => $form_state['values']['mail'], '%newsletter' => $form_state['values']['newsletter']->name)));
+
+  if (!$path = variable_get('simplenews_confirm_unsubscribe_page', '')) {
+    $path = variable_get('site_frontpage', 'node');
+    drupal_set_message(t('%user was unsubscribed from the %newsletter mailing list.', array('%user' => $form_state['values']['mail'], '%newsletter' => _simplenews_newsletter_name($form_state['values']['newsletter']))));
   }
+
+  $form_state['redirect'] = $path;
 }
 
 /**
@@ -622,9 +716,8 @@ function simplenews_confirm_removal_form_submit($form, &$form_state) {
  * @see simplenews_subscriptions_admin_form_validate()
  * @see simplenews_subscriptions_admin_form_submit()
  */
-function simplenews_subscriptions_admin_form(&$form_state, $snid) {
-  $account = (object) array('snid' => $snid);
-  $subscription = simplenews_get_subscription($account);
+function simplenews_subscriptions_admin_form($form, &$form_state, $snid) {
+  $subscriber = simplenews_subscriber_load($snid);
 
   $form = array();
   $options = array();
@@ -632,20 +725,20 @@ function simplenews_subscriptions_admin_form(&$form_state, $snid) {
 
   // Get newsletters for subscription form checkboxes.
   // Newsletters with opt-in/out method 'hidden' will not be listed.
-  foreach (simplenews_get_newsletters(variable_get('simplenews_vid', '')) as $newsletter) {
-    $options[$newsletter->tid] = check_plain($newsletter->name);
+  foreach (simplenews_category_get_visible() as $newsletter) {
+    $options[$newsletter->tid] = check_plain(_simplenews_newsletter_name($newsletter));
     $default_value[$newsletter->tid] = FALSE;
   }
 
   $form['subscriptions'] = array(
-    '#title' => t('Subscriptions for %mail', array('%mail' => $subscription->mail)),
+    '#title' => t('Subscriptions for %mail', array('%mail' => $subscriber->mail)),
     '#type' => 'fieldset',
     '#description' => t('Select the newsletter(s) to add/remove from subscription.'),
   );
   $form['subscriptions']['newsletters'] = array(
     '#type' => 'checkboxes',
     '#options' => $options,
-    '#default_value' => array_merge($default_value, (array)$subscription->tids),
+    '#default_value' => array_merge($default_value, $subscriber->tids),
   );
 
   $form['activated'] = array(
@@ -656,42 +749,40 @@ function simplenews_subscriptions_admin_form(&$form_state, $snid) {
   $form['activated']['activated'] = array(
     '#type' => 'checkbox',
     '#title' => t('Activated'),
-    '#default_value' => $subscription->activated,
+    '#default_value' => $subscriber->activated,
   );
 
   if ((variable_get('language_count', 1) > 1)) {
-    // TODO we could allow to switch back to "default", but user_load
-    //$language_options[''] = t('Site default language');
     $languages = language_list('enabled');
     foreach ($languages[1] as $langcode => $item) {
       $name = t($item->name);
-      $language_options[$langcode] = $name . ($item->native != $name ? ' ('. $item->native .')' : '');
+      $language_options[$langcode] = $name . ($item->native != $name ? ' (' . $item->native . ')' : '');
     }
-    // std users have language in profile. disable
-    $disabled = $subscription->uid ? TRUE : FALSE;
     $form['language'] = array(
       '#type' => 'fieldset',
-      '#title' => 'Preferred language',
-      '#description' => t('The emails will be localized in language chosen. Real users have their preference in account settings.'),
+      '#title' => t('Preferred language'),
+      '#description' => t('The e-mails will be localized in language chosen. Real users have their preference in account settings.'),
       '#disabled' => FALSE,
     );
-    if ($subscription->uid) {
-      // fapi error: disabled not supported for select type. workaround: output markup
+    if ($subscriber->uid) {
+      // Fallback if user has not defined a language.
+      $language_default = t('Site default language (@name)', array('@name' => $language_options[language_default()->language]));
       $form['language']['language'] = array(
-        '#type' => 'markup',
-        '#value' => $language_options[$subscription->language->language],
+        '#type' => 'item',
+        '#title' => t('User language'),
+        '#markup' => isset($language_options[$subscriber->language]) ? $language_options[$subscriber->language] : $language_default,
       );
     }
     else {
       $form['language']['language'] = array(
         '#type' => 'select',
-        '#default_value' => $subscription->language->language,
+        '#default_value' => $subscriber->language,
         '#options' => $language_options,
       );
     }
   }
 
-  $form['subscriptions']['mail'] = array('#type' => 'value', '#value' => $subscription->mail);
+  $form['subscriptions']['mail'] = array('#type' => 'value', '#value' => $subscriber->mail);
   $form['update'] = array(
     '#type' => 'submit',
     '#value' => t('Update'),
@@ -709,21 +800,14 @@ function simplenews_subscriptions_admin_form(&$form_state, $snid) {
  * FAPI ADMIN subscription form_validate.
  */
 function simplenews_subscriptions_admin_form_validate($form, &$form_state) {
-  global $user;
-  if (isset($user->mail) && $user->mail == $form_state['values']['mail']) {
-    $account = $user;
-  }
-  else {
-    $account = (object) array('mail' => $form_state['values']['mail']);
-  }
-  $subscription = simplenews_get_subscription($account);
+  $subscriber = simplenews_subscriber_load_by_mail($form_state['values']['mail']);
 
-  $valid_email = simplenews_valid_email_address($form_state['values']['mail']);
+  $valid_email = valid_email_address($form_state['values']['mail']);
   if (!$valid_email) {
-    form_set_error('mail', t('The email address you supplied is not valid.'));
+    form_set_error('mail', t('The e-mail address you supplied is not valid.'));
   }
   $checked_newsletters = array_filter($form_state['values']['newsletters']);
-  if (!count($checked_newsletters) && $subscription->uid) {
+  if (!count($checked_newsletters) && !$subscriber) {
     form_set_error('newsletters', t('You must select at least one newsletter.'));
   }
   $languages = language_list('enabled');
@@ -737,15 +821,9 @@ function simplenews_subscriptions_admin_form_validate($form, &$form_state) {
  * FAPI ADMIN subscription form_submit.
  */
 function simplenews_subscriptions_admin_form_submit($form, &$form_state) {
-  global $user;
-  if (isset($user->mail) && $user->mail == $form_state['values']['mail']) {
-    $account = $user;
-  }
-  else {
-    $account = (object) array('mail' => $form_state['values']['mail']);
-  }
-  $subscription = simplenews_get_subscription($account);
+  $subscriber = simplenews_subscriber_load_by_mail($form_state['values']['mail']);
 
+  // update subscriptions
   arsort($form_state['values']['newsletters'], SORT_NUMERIC);
   foreach ($form_state['values']['newsletters'] as $tid => $checked) {
     if ($checked) {
@@ -756,14 +834,15 @@ function simplenews_subscriptions_admin_form_submit($form, &$form_state) {
     }
   }
 
+  // update subscriber
   $data = array();
-  $data['activated'] = $form_state['values']['activated'];
-  if (!$subscription->uid) {
+  $subscriber->activated = $form_state['values']['activated'];
+  if (!$subscriber->uid) {
     if (isset($form_state['values']['language'])) {
-      $data['language'] = $form_state['values']['language'];
+      $subscriber->language = $form_state['values']['language'];
     }
   }
-  simplenews_subscriber_update($subscription, $data);
+  simplenews_subscriber_save($subscriber);
 
   drupal_set_message(t('The newsletter subscriptions for %mail have been updated.', array('%mail' => $form_state['values']['mail'])));
 }

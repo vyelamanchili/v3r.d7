@@ -8,22 +8,24 @@
  */
 
 /**
- * Separate CSS from HTML for processing.
+ * Separate CSS from HTML for processing
  */
 function mimemail_compress_clean_message($message) {
   $parts = array();
   preg_match('|(<style[^>]+)>(.*)</style>|mis', $message, $matches);
-  $css = str_replace('<!--', '', $matches[2]);
-  $css = str_replace('-->', '', $css);
-  $css = preg_replace('|\{|', "\n{\n", $css);
-  $css = preg_replace('|\}|', "\n}\n", $css);
-  $html = str_replace($matches[0], '', $message);
-  $parts = array('html' => $html, 'css' => $css);
+  if (isset($matches[0]) && isset($matches[2])) {
+    $css = str_replace('<!--', '', $matches[2]);
+    $css = str_replace('-->', '', $css);
+    $css = preg_replace('|\{|', "\n{\n", $css);
+    $css = preg_replace('|\}|', "\n}\n", $css);
+    $html = str_replace($matches[0], '', $message);
+    $parts = array('html' => $html, 'css' => $css);
+  }
   return $parts;
 }
 
 /**
- * Compress HTML and CSS into combined message.
+ * Compress HTML and CSS into combined message
  */
 class mimemail_compress {
   private $html = '';
@@ -62,12 +64,12 @@ class mimemail_compress {
     }
 
     $err = error_reporting(0);
-    $doc = new DOMDocument;
+    $doc = new DOMDocument();
 
     // Try to set character encoding.
     if (function_exists('mb_convert_encoding')) {
-        $body = mb_convert_encoding($body, 'HTML-ENTITIES', "UTF-8");
-        $doc->encoding= "UTF-8";
+      $body = mb_convert_encoding($body, 'HTML-ENTITIES', "UTF-8");
+      $doc->encoding= "UTF-8";
     }
 
     $doc->strictErrorChecking = FALSE;
@@ -110,7 +112,7 @@ class mimemail_compress {
     $nodes = @$xpath->query('//*[@style]');
     if ($nodes->length > 0) {
       foreach ($nodes as $node) {
-        $style = preg_replace('/[A-z\-]+(?=\:)/Se', "drupal_strtolower('\\0')", $node->getAttribute('style'));
+        $style = preg_replace_callback('/[A-z\-]+(?=\:)/S', create_function('$matches', 'return strtolower($matches[0]);'), $node->getAttribute('style'));
         $all_selectors[] = array(
           'selector' => $this->calculateXPath($node),
           'attributes' => $style,
@@ -131,23 +133,37 @@ class mimemail_compress {
           // New styles overwrite the old styles (not technically accurate, but close enough).
           $compressed = array_merge($old_style, $new_style);
           $style = '';
-          foreach ($compressed as $k => $v) $style .= (drupal_strtolower($k) . ':' . $v . ';');
+          foreach ($compressed as $k => $v) {
+            $style .= (drupal_strtolower($k) . ':' . $v . ';');
+          }
         }
         else {
           // Otherwise create a new style.
           $style = trim($value['attributes']);
         }
         $node->setAttribute('style', $style);
+
+        // Convert float to align for images.
+        $float = preg_match ('/float:(left|right)/', $style, $matches);
+        if ($node->nodeName == 'img' && $float) {
+          $node->setAttribute('align', $matches[1]);
+          $node->setAttribute('vspace', 5);
+          $node->setAttribute('hspace', 5);
+        }
       }
     }
 
     // This removes styles from your email that contain display:none. You could comment these out if you want.
     $nodes = $xpath->query('//*[contains(translate(@style," ",""), "display:none")]');
-    foreach ($nodes as $node) $node->parentNode->removeChild($node);
+    foreach ($nodes as $node) {
+      $node->parentNode->removeChild($node);
+    }
 
     if (variable_get('mimemail_preserve_class', 0) == FALSE) {
       $nodes = $xpath->query('//*[@class]');
-      foreach ($nodes as $node) $node->removeAttribute('class');
+      foreach ($nodes as $node) {
+        $node->removeAttribute('class');
+      }
     }
 
     error_reporting($err);
@@ -166,12 +182,13 @@ class mimemail_compress {
   private static function get_selector_precedence($selector) {
     $precedence = 0;
     $value = 100;
-    $search = array('\#', '\.', ''); // ids: worth 100, classes: worth 10, elements: worth 1
+    // Ids: worth 100, classes: worth 10, elements: worth 1.
+    $search = array('\#', '\.', '');
 
     foreach ($search as $s) {
       if (trim($selector == '')) break;
       $num = 0;
-      $selector = preg_replace('/'. $s .'\w+/', '', $selector, -1, $num);
+      $selector = preg_replace('/' . $s . '\w+/', '', $selector, -1, $num);
       $precedence += ($value * $num);
       $value /= 10;
     }
@@ -182,7 +199,7 @@ class mimemail_compress {
   /**
    * Right now we only support CSS 1 selectors, but include CSS2/3 selectors are fully possible.
    *
-   * @see http://plasmasturm.org/log/444/
+   * @see http://plasmasturm.org/log/444
    */
   private function css_to_xpath($selector) {
     if (drupal_substr($selector, 0, 1) == '/') {
@@ -206,9 +223,9 @@ class mimemail_compress {
       '\\1[@\\2]',
       '\\1[@\\2="\\3"]',
       "(strlen('\\1') ? '\\1' : '*').'[@id=\"\\2\"]'",
-      "(strlen('\\1') ? '\\1' : '*').'[contains(concat(\" \",normalize-space(@class),\" \"),concat(\" \",\"'.implode('\",\" \"))][contains(concat(\" \",normalize-space(@class),\" \"),concat(\" \",\"',explode('.',drupal_substr('\\2',1))).'\",\" \"))]'",
+      "(strlen('\\1') ? '\\1' : '*').'[contains(concat(\" \",normalize-space(@class),\" \"),concat(\" \",\"'.implode('\",\" \"))][contains(concat(\" \",normalize-space(@class),\" \"),concat(\" \",\"',explode('.',substr('\\2',1))).'\",\" \"))]'",
     );
-    return '//'. preg_replace($search, $replace, trim($selector));
+    return '//' . preg_replace($search, $replace, trim($selector));
   }
 
   private function css_style_to_array($style) {
@@ -223,16 +240,25 @@ class mimemail_compress {
     return $css_styles;
   }
 
-  // Get the full path to a DOM node.
-  // @see http://stackoverflow.com/questions/2643533/php-getting-xpath-of-a-domnode
+  /**
+   * Get the full path to a DOM node.
+   *
+   * @param DOMNode $node
+   *   The node to analyze.
+   *
+   * @return string
+   *   The full xpath to a DOM node.
+   *
+   * @see http://stackoverflow.com/questions/2643533/php-getting-xpath-of-a-domnode
+   */
   function calculateXPath(DOMNode $node) {
     $xpath = '';
     $q = new DOMXPath($node->ownerDocument);
 
     do {
         $position = 1 + $q->query('preceding-sibling::*[name()="' . $node->nodeName . '"]', $node)->length;
-        $xpath    = '/' . $node->nodeName . '[' . $position . ']' . $xpath;
-        $node     = $node->parentNode;
+        $xpath = '/' . $node->nodeName . '[' . $position . ']' . $xpath;
+        $node = $node->parentNode;
     }
     while (!$node instanceof DOMDocument);
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: countdown.tpl.php,v 1.1.2.1 2008/05/12 15:29:47 deekayen Exp $
+// $Id: countdown.tpl.php,v 1.3 2009/05/08 21:55:27 deekayen Exp $
 
 /**
  * @file countdown.tpl.php
@@ -25,17 +25,22 @@ $hrs_left  = floor(($difference - $days_left*60*60*24)/60/60);
 $min_left  = floor(($difference - $days_left*60*60*24 - $hrs_left*60*60)/60);
 $secs_left = floor(($difference - $days_left*60*60*24 - $hrs_left*60*60 - $min_left*60));
 
-print t('%i days', array('%i' => $days_left));
+print format_plural($days_left, '1 day', '@count days');
 if ($accuracy == 'h' || $accuracy == 'm' || $accuracy == 's') {
-  print  t(', %i hours', array('%i' => $hrs_left));
+  print format_plural($hrs_left, ', 1 hour', ', @count hours');
 }
 if ($accuracy == 'm' || $accuracy == 's') {
-  print  t(', %i minutes', array('%i' => $min_left));
+  print format_plural($min_left, ', 1 minute', ', @count minutes');
 }
 if ($accuracy == 's') {
-  print t(', %i seconds', array('%i' => $secs_left));
+  print format_plural($secs_left, ', 1 second', ', @count seconds');
 }
-print t(($passed) ? ' since %s.' : ' until %s.', array('%s' => variable_get('countdown_event_name', '')));
+
+$event_name = variable_get('countdown_event_name', '');
+$url = variable_get('countdown_url', '');
+$event_name = empty($url) || $url == 'http://' ? $event_name : l($event_name, $url, array('absolute' => TRUE));
+
+print t(($passed) ? ' since !s.' : ' until !s.', array('!s' => $event_name));
 
 if ($accuracy != 'd') {
   $path = drupal_get_path('module', 'countdown');

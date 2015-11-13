@@ -1,4 +1,3 @@
-$Id: README.txt,v 1.1 2009/01/13 21:58:24 sutharsan Exp $
 
 DESCRIPTION
 -----------
@@ -22,7 +21,7 @@ INSTALLATION
  2. ENABLE THE MODULE
 
     Enable the module on the Modules admin page:
-      Administer > Site building > Modules
+      Administer > Modules
 
  3. ACCESS PERMISSION
 
@@ -32,4 +31,4 @@ INSTALLATION
  4. CONFIGURATION
 
     Configure the module on:
-      Administer > Site configuration > Simplenews > Google Analytics tags.
+      Administer > Configuration > Web Services > Newsletters > Settings > Google Analytics tags.

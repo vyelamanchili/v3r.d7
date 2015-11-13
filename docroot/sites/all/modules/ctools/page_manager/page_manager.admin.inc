@@ -1,5 +1,4 @@
 <?php
-// $Id: page_manager.admin.inc,v 1.27.2.18 2010/10/29 22:40:52 merlinofchaos Exp $
 
 /**
  * @file
@@ -15,14 +14,24 @@
 function page_manager_list_page($js = NULL) {
   // Prevent this page from showing up when random other links fail.
   if ($js && $js != 'ajax' && $js != 'nojs') {
-    return drupal_not_found();
+    return MENU_NOT_FOUND;
   }
 
   // TRUE if 'ajax', FALSE if otherwise.
   $js = $js == 'ajax';
 
+  // If we do any form rendering, it's to completely replace a form on the
+  // page, so don't let it force our ids to change.
+  if ($js && isset($_POST['ajax_html_ids'])) {
+    unset($_POST['ajax_html_ids']);
+  }
+
   if (module_exists('advanced_help') && !$js) {
-    drupal_set_message(theme('advanced_help_topic', 'page_manager', 'getting-started', t('See the getting started guide for more information.')));
+    drupal_set_message(theme('advanced_help_topic', array(
+      'module' => 'page_manager',
+      'topic' => 'getting-started',
+      'type' => t('See the getting started guide for more information.'),
+    )));
   }
 
   $tasks = page_manager_get_tasks_by_type('page');
@@ -32,15 +41,16 @@ function page_manager_list_page($js = NULL) {
 
   // Add lock icon to all locked tasks.
   global $user;
+
   ctools_include('object-cache');
   $locks = ctools_object_cache_test_objects('page_manager_page', $pages['tasks']);
   foreach ($locks as $task_name => $lock) {
     if ($lock->uid == $user->uid) {
-      $pages['rows'][$task_name]['class'] .= ' page-manager-locked';
+      $pages['rows'][$task_name]['class'][] = ' page-manager-locked';
       $pages['rows'][$task_name]['title'] = t('This page is currently locked for editing by you. Nobody else may edit this page until these changes are saved or canceled.');
     }
     else {
-      $pages['rows'][$task_name]['class'] .= ' page-manager-locked-other';
+      $pages['rows'][$task_name]['class'][] = ' page-manager-locked-other';
       $pages['rows'][$task_name]['title'] = t('This page is currently locked for editing by another user. You may not edit this page without breaking the lock.');
     }
   }
@@ -52,7 +62,7 @@ function page_manager_list_page($js = NULL) {
   if (isset($input['op']) && $input['op'] == t('Reset')) {
     unset($_SESSION['page_manager']['#admin']);
     if (!$js) {
-      return drupal_goto($_GET['q']);
+      drupal_goto($_GET['q']);
     }
     // clear everything but form id, form build id and form token:
     $keys = array_keys($input);
@@ -81,35 +91,37 @@ function page_manager_list_page($js = NULL) {
   );
 
   // This form will sort and filter the pages.
-  ctools_include('form');
-  $form = ctools_build_form('page_manager_list_pages_form', $form_state);
+  $form = drupal_build_form('page_manager_list_pages_form', $form_state);
 
   $header = array(
-    array('data' => t('Type'), 'class' => 'page-manager-page-type'),
-    array('data' => t('Name'), 'class' => 'page-manager-page-name'),
-    array('data' => t('Title'), 'class' => 'page-manager-page-title'),
-    array('data' => t('Path'), 'class' => 'page-manager-page-path'),
-    array('data' => t('Storage'), 'class' => 'page-manager-page-storage'),
+    array('data' => t('Type'), 'class' => array('page-manager-page-type')),
+    array('data' => t('Module'), 'class' => array('page-manager-page-module')),
+    array('data' => t('Name'), 'class' => array('page-manager-page-name')),
+    array('data' => t('Title'), 'class' => array('page-manager-page-title')),
+    array('data' => t('Path'), 'class' => array('page-manager-page-path')),
+    array('data' => t('Storage'), 'class' => array('page-manager-page-storage')),
   );
 
-  $header[] = array('data' => t('Operations'), 'class' => 'page-manager-page-operations');
-  $table = theme('table', $header, $pages['rows'], array('id' => 'page-manager-list-pages'));
+  $header[] = array('data' => t('Operations'), 'class' => array('page-manager-page-operations'));
+  $table = theme('table', array('header' => $header, 'rows' => $pages['rows'], 'attributes' => array('id' => 'page-manager-list-pages')));
 
-  $operations = '<div id="page-manager-links" class="links">' . theme('links', $pages['operations']) . '</div>';
+  $operations = '<div id="page-manager-links" class="links">' . theme('links', array('links' => $pages['operations'])) . '</div>';
 
   drupal_add_css(drupal_get_path('module', 'page_manager') . '/css/page-manager.css');
 
+
   if (!$js) {
-    return $form . $table . $operations;
+    return array('#markup' => drupal_render($form) . $table . $operations);
   }
 
   ctools_include('ajax');
   $commands = array();
-  $commands[] = ctools_ajax_command_replace('#page-manager-list-pages', $table);
+  $commands[] = ajax_command_replace('#page-manager-list-pages', $table);
   if (!empty($replace_form)) {
-    $commands[] = ctools_ajax_command_replace('#page-manager-list-pages-form', $form);
+    $commands[] = ajax_command_replace('#page-manager-list-pages-form', drupal_render($form));
   }
-  ctools_ajax_render($commands);
+  print ajax_render($commands);
+  ajax_footer();
 }
 
 /**
@@ -134,20 +146,20 @@ function page_manager_get_pages($tasks, &$pages, $task_id = NULL) {
       $task_name = $task['name'];
     }
 
-    $class = 'page-task-' . $id;
+    $class = array('page-task-' . $id);
     if (isset($task['row class'])) {
-      $class .= ' ' . $task['row class'];
+      $class[] = $task['row class'];
     }
 
     if (!empty($task['disabled'])) {
-      $class .= ' page-manager-disabled';
+      $class[] = 'page-manager-disabled';
     }
 
     $path = array();
     $visible_path = '';
     if (!empty($task['admin path'])) {
       foreach (explode('/', $task['admin path']) as $bit) {
-        if ($bit[0] != '!') {
+        if (isset($bit[0]) && $bit[0] != '!') {
           $path[] = $bit;
         }
       }
@@ -164,16 +176,25 @@ function page_manager_get_pages($tasks, &$pages, $task_id = NULL) {
     $row = array('data' => array(), 'class' => $class, 'title' => strip_tags($task['admin description']));
 
     $type = isset($task['admin type']) ? $task['admin type'] : t('System');
+    if (isset($task['module'])) {
+      $module = $task['module'];
+    }
+    elseif (isset($task['subtask']->export_module)) {
+      $module = $task['subtask']->export_module;
+    }
+    else {
+      $module = '';
+    }
     $pages['types'][$type] = $type;
-    $row['data']['type'] = array('data' => $type, 'class' => 'page-manager-page-type');
-
-    $row['data']['name'] = array('data' => $task_name, 'class' => 'page-manager-page-name');
-    $row['data']['title'] = array('data' => $task['admin title'], 'class' => 'page-manager-page-title');
-    $row['data']['path'] = array('data' => $visible_path, 'class' => 'page-manager-page-path');
+    $row['data']['type'] = array('data' => $type, 'class' => array('page-manager-page-type'));
+    $row['data']['module'] = array('data' => $module, 'class' => array('page-manager-page-module'));
+    $row['data']['name'] = array('data' => $task_name, 'class' => array('page-manager-page-name'));
+    $row['data']['title'] = array('data' => $task['admin title'], 'class' => array('page-manager-page-title'));
+    $row['data']['path'] = array('data' => $visible_path, 'class' => array('page-manager-page-path'));
 
     $storage = isset($task['storage']) ? $task['storage'] : t('In code');
     $pages['storages'][$storage] = $storage;
-    $row['data']['storage'] = array('data' => $storage, 'class' => 'page-manager-page-storage');
+    $row['data']['storage'] = array('data' => $storage, 'class' => array('page-manager-page-storage'));
 
 
 /*
@@ -196,22 +217,24 @@ function page_manager_get_pages($tasks, &$pages, $task_id = NULL) {
 
     if (!empty($task['enable callback'])) {
       if (!empty($task['disabled'])) {
-        $operations[] = array(
+        array_unshift($operations, array(
           'title' => t('Enable'),
-          'href' => 'admin/build/pages/nojs/enable/' . $task_name,
+          'href' => 'admin/structure/pages/nojs/enable/' . $task_name,
           'query' => array('token' => drupal_get_token($task_name)),
-        );
+        ));
       }
       else {
         $operations[] = array(
           'title' => t('Disable'),
-          'href' => 'admin/build/pages/nojs/disable/' . $task_name,
+          'href' => 'admin/structure/pages/nojs/disable/' . $task_name,
           'query' => array('token' => drupal_get_token($task_name)),
         );
       }
     }
 
-    $row['data']['operations'] = array('data' => theme('links', $operations), 'class' => 'page-manager-page-operations');
+    $ops = theme('links__ctools_dropbutton', array('links' => $operations, 'attributes' => array('class' => array('links', 'inline'))));
+
+    $row['data']['operations'] = array('data' => $ops, 'class' => array('page-manager-page-operations'));
 
     $pages['disabled'][$task_name] = !empty($task['disabled']);
     $pages['tasks'][] = $task_name;
@@ -222,13 +245,13 @@ function page_manager_get_pages($tasks, &$pages, $task_id = NULL) {
 /**
  * Provide a form for sorting and filtering the list of pages.
  */
-function page_manager_list_pages_form(&$form_state) {
+function page_manager_list_pages_form($form, &$form_state) {
   // This forces the form to *always* treat as submitted which is
   // necessary to make it work.
   if (empty($_POST)) {
     $form["#programmed"] = TRUE;
   }
-  $form['#action'] = url('admin/build/pages/nojs/', array('absolute' => TRUE));
+  $form['#action'] = url('admin/structure/pages/nojs/', array('absolute' => TRUE));
   if (!variable_get('clean_url', FALSE)) {
     $form['q'] = array(
       '#type' => 'hidden',
@@ -293,20 +316,23 @@ function page_manager_list_pages_form(&$form_state) {
     '#type' => 'submit',
     '#id' => 'edit-pages-apply',
     '#value' => t('Apply'),
-    '#attributes' => array('class' => 'ctools-use-ajax'),
+    '#attributes' => array('class' => array('use-ajax-submit ctools-auto-submit-click')),
   );
 
   $form['reset'] = array(
     '#type' => 'submit',
     '#id' => 'edit-pages-reset',
     '#value' => t('Reset'),
-    '#attributes' => array('class' => 'ctools-use-ajax'),
+    '#attributes' => array('class' => array('use-ajax-submit')),
   );
 
-  ctools_add_js('ajax-responder');
-  drupal_add_js('misc/jquery.form.js');
-  drupal_add_js(drupal_get_path('module', 'page_manager') . '/js/page-list.js');
-  $form['#theme'] = array('page_manager_list_pages_form');
+  $form['#attached']['js'] = array(ctools_attach_js('auto-submit'), ctools_attach_js('page-list', 'page_manager'));
+  $form['#attached']['library'][] = array('system', 'drupal.ajax');
+  $form['#attached']['library'][] = array('system', 'jquery.form');
+  $form['#prefix'] = '<div class="clearfix">';
+  $form['#suffix'] = '</div>';
+  $form['#attributes'] = array('class' => array('ctools-auto-submit-full-form'));
+
   return $form;
 }
 
@@ -385,19 +411,18 @@ function page_manager_list_pages_form_submit(&$form, &$form_state) {
  * Render the edit page for a a page, custom or system.
  */
 function page_manager_edit_page($page) {
-  ctools_include('form');
-  drupal_set_title($page->subtask['admin title']);
+  drupal_set_title($page->subtask['admin title'], PASS_THROUGH);
   // Provide and process the save page form before anything else.
   $form_state = array('page' => &$page);
-  $form = ctools_build_form('page_manager_save_page_form', $form_state);
+  $built_form = drupal_build_form('page_manager_save_page_form', $form_state);
+  $form = drupal_render($built_form);
 
   $operations = page_manager_get_operations($page);
   $args = array('summary');
-  $rendered_operations = page_manager_render_operations($page, $operations, $args, array('class' => 'operations-main'), 'nav');
+  $rendered_operations = page_manager_render_operations($page, $operations, $args, array('class' => array('operations-main')), 'nav');
   $content = page_manager_get_operation_content(FALSE, $page, $args, $operations);
-
-  $output = theme('page_manager_edit_page', $page, $form, $rendered_operations, $content);
-  return $output;
+  $output = theme('page_manager_edit_page', array('page' => $page, 'save' => $form, 'operations' => $rendered_operations, 'content' => $content));
+  return array('#markup' => $output);
 }
 
 /**
@@ -430,27 +455,26 @@ function page_manager_edit_page_operation() {
   // operations, such as renaming or adding a handler. Thus we get a new set
   // of operations.
   $operations = page_manager_get_operations($page);
-  $rendered_operations = page_manager_render_operations($page, $operations, $args, array('class' => 'operations-main'), 'nav');
+  $rendered_operations = page_manager_render_operations($page, $operations, $args, array('class' => array('operations-main')), 'nav');
 
   // Since this form should never be submitted to this page, process it late so
   // that we can be sure it notices changes.
-  ctools_include('form');
   $form_state = array('page' => &$page);
-  $form = ctools_build_form('page_manager_save_page_form', $form_state);
+  $built_form = drupal_build_form('page_manager_save_page_form', $form_state);
+  $form = drupal_render($built_form);
 
-  $output = theme('page_manager_edit_page', $page, $form, $rendered_operations, $content);
+  $output = theme('page_manager_edit_page', array('page' => $page, 'save' => $form, 'operations' => $rendered_operations, 'content' => $content));
 
   if ($js) {
     $commands = array();
-    if (isset($content['js settings'])) {
-      $commands[] = ctools_ajax_command_settings($content['js settings']);
-    }
-    $commands[] = ctools_ajax_command_replace('#page-manager-edit', $output);
+    $commands[] = ajax_command_replace('#page-manager-edit', $output);
 
-    ctools_ajax_render($commands);
+    print ajax_render($commands);
+    ajax_footer();
+    return;
   }
 
-  drupal_set_title($page->subtask['admin title']);
+  drupal_set_title($page->subtask['admin title'], PASS_THROUGH);
   return $output;
 }
 
@@ -474,7 +498,7 @@ function page_manager_get_operations($page, $operations = NULL) {
       'summary' => array(
         'title' => t('Summary'),
         'description' => t('Get a summary of the information about this page.'),
-        'path' => 'admin/build/pages/edit',
+        'path' => 'admin/structure/pages/edit',
         'ajax' => FALSE,
         'no operations' => TRUE,
         'form info' => array(
@@ -485,7 +509,7 @@ function page_manager_get_operations($page, $operations = NULL) {
       'actions' => array(
         'type' => 'group',
         'title' => '',
-        'class' => 'operations-actions',
+        'class' => array('operations-actions'),
         'location' => 'primary',
         'children' => array(),
       ),
@@ -563,8 +587,8 @@ function page_manager_get_operations($page, $operations = NULL) {
     ),
   );
 
-  // Restrict variant import to users who can already execute arbitrary PHP
-  if (user_access('use PHP for block visibility')) {
+  // Restrict variant import due to security implications.
+  if (user_access('use ctools import')) {
     $result['actions']['children']['import'] = array(
       'title' => t('Import variant'),
       'description' => t('Add a new variant to this page from code exported from another page.'),
@@ -640,7 +664,7 @@ function page_manager_get_handler_operations(&$page) {
   ctools_include('export');
   $group = array(
     'type' => 'group',
-    'class' => 'operations-handlers',
+    'class' => array('operations-handlers'),
     'title' => t('Variants'),
   );
 
@@ -657,7 +681,7 @@ function page_manager_get_handler_operations(&$page) {
 
     $operations[$id] = array(
       'type' => 'group',
-      'class' => 'operations-handlers-' . $id,
+      'class' => array('operations-handlers-' . $id),
       'title' => page_manager_get_handler_title($plugin, $handler, $page->task, $page->subtask_id),
       'collapsible' => $collapsible,
       'children' => array(),
@@ -665,7 +689,7 @@ function page_manager_get_handler_operations(&$page) {
 
     $operations[$id]['children']['actions'] = array(
       'type' => 'group',
-      'class' => 'operations-handlers-actions-' . $id,
+      'class' => array('operations-handlers-actions-' . $id),
       'title' => t('Variant operations'),
       'children' => array(),
       'location' => $id,
@@ -912,13 +936,11 @@ function _page_manager_get_operation_content($js, &$page, $active, $operation, $
       $form_state['handler'] = &$form_state['page']->new_handler;
     }
 
-    $output = ctools_wizard_multistep_form($form_info, $step, $form_state);
+    $built_form = ctools_wizard_multistep_form($form_info, $step, $form_state);
+    $output = drupal_render($built_form);
     $title = empty($form_state['title']) ? $operation['title'] : $form_state['title'];
     $titles[] = $title;
-    $title = implode(' &raquo ', array_filter($titles));
-    if (isset($form_state['js settings'])) {
-      $js_settings = $form_state['js settings'];
-    }
+    $title = implode(' &raquo; ', array_filter($titles));
 
     // If there are messages for the form, render them.
     if ($messages = theme('status_messages')) {
@@ -950,15 +972,11 @@ function _page_manager_get_operation_content($js, &$page, $active, $operation, $
     );
   }
 
-  if (isset($js_settings)) {
-    $return['js settings'] = $js_settings;
-  }
-
   $return['active'] = $active;
   return $return;
 }
 
-function page_manager_operation_wrapper(&$form, &$form_state) {
+function page_manager_operation_wrapper($form, &$form_state) {
   if (empty($form_state['operation']['no update and save']) && !empty($form['buttons']['return']['#wizard type']) && $form['buttons']['return']['#wizard type']) {
     $form['buttons']['save'] = array(
       '#type' => 'submit',
@@ -968,6 +986,8 @@ function page_manager_operation_wrapper(&$form, &$form_state) {
       '#save' => TRUE,
     );
   }
+
+  return $form;
 }
 
 /**
@@ -1083,6 +1103,8 @@ function page_manager_edit_page_cancel(&$form_state) {
  * - - 'collapsible': If TRUE the collapsible tool will be used.
  */
 function page_manager_render_operations(&$page, $operations, $active_trail, $attributes, $location, $parents = array()) {
+  drupal_add_library('system', 'drupal.ajax');
+
   if (!isset($output[$location])) {
     $output[$location] = '';
   }
@@ -1113,29 +1135,34 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
 
     // We only render an li for things in the same nav tree.
     if (empty($operation['location']) || $operation['location'] == $location) {
-      $class = $attributes['class'];
+      if (!is_array($attributes['class'])) {
+        $attributes['class'] = array($attributes['class']);
+      }
+
+      $class = empty($attributes['class']) || !is_array($attributes['class']) ? array() : $attributes['class'];
+
       if ($id == $first) {
-        $class .= ' operation-first';
+        $class[] = 'operation-first';
       }
       else if ($id == $last) {
-        $class .= ' operation-last';
+        $class[] = 'operation-last';
       }
 
       if (empty($operation['silent']) && !empty($page->changes[$current_path])) {
-        $class .= $operation['type'] == 'group' ? ' changed-group' : ' changed';
+        $class[] = $operation['type'] == 'group' ? 'changed-group' : 'changed';
       }
       else {
-        $class .= ' not-changed';
+        $class[] = 'not-changed';
       }
 
       if ($active == $id) {
-        $class .= $operation['type'] == 'group' ? ' active-group' : ' active';
+        $class[] = $operation['type'] == 'group' ? 'active-group' : 'active';
       }
       else {
-        $class .= ' not-active';
+        $class[] = 'not-active';
       }
 
-      $output[$location] .= '<li class="' . $class . '">';
+      $output[$location] .= '<li class="' . implode(' ', $class) . '">';
     }
 
     switch ($operation['type']) {
@@ -1143,7 +1170,7 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
         $output[$location] .= $operation['title'];
         break;
       case 'operation':
-        $path = isset($operation['path']) ? $operation['path'] : 'admin/build/pages/nojs/operation';
+        $path = isset($operation['path']) ? $operation['path'] : 'admin/structure/pages/nojs/operation';
         if (!isset($operation['no task'])) {
           $path .= '/' . $page->task_name;
         }
@@ -1155,12 +1182,12 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
           }
         }
 
-        $class = 'page-manager-operation';
+        $class = array('page-manager-operation');
         if (!isset($operation['ajax']) || !empty($operation['ajax'])) {
-          $class .= ' ctools-use-ajax';
+          $class[] = 'use-ajax';
         }
         if (!empty($operation['class'])) {
-          $class .= ' ' . $operation['class'];
+          $class[] = $operation['class'];
         }
 
         $description = isset($operation['description']) ? $operation['description'] : '';
@@ -1197,7 +1224,10 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
   }
 
   if ($output[$location]) {
-    $output[$location] = '<ul class="page-manager-operations ' . $attributes['class'] . '">' . $output[$location] . '</ul>';
+    $classes = isset($attributes['class']) && is_array($attributes['class']) ? $attributes['class'] : array();
+    $classes[] = 'page-manager-operations';
+
+    $output[$location] = '<ul class="' . implode(' ', $classes) . '">' . $output[$location] . '</ul>';
 
     if (!empty($attributes['title'])) {
       $class = '';
@@ -1207,7 +1237,7 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
       $title = '<div class="page-manager-group-title' . $class . '">' . $attributes['title'] . '</div>';
 
       if (!empty($attributes['collapsible'])) {
-        $output[$location] = theme('ctools_collapsible', $title, $output[$location], empty($active_trail));
+        $output[$location] = theme('ctools_collapsible', array('handle' => $title, 'content' => $output[$location], 'collapsed' => empty($active_trail)));
       }
       else {
         $output[$location] = $title . $output[$location];
@@ -1220,14 +1250,14 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
 /**
  * Provide a simple form for saving the page manager info out of the cache.
  */
-function page_manager_save_page_form(&$form_state) {
+function page_manager_save_page_form($form, &$form_state) {
   if (!empty($form_state['page']->changed)) {
     $form['markup'] = array(
-      '#value' => '<div class="changed-notification">' . t('You have unsaved changes to this page. You must select Save to write them to the database, or Cancel to discard these changes. Please note that if you have changed any form, you must submit that form before saving.') . '</div>',
+      '#markup' => '<div class="changed-notification">' . t('You have unsaved changes to this page. You must select Save to write them to the database, or Cancel to discard these changes. Please note that if you have changed any form, you must submit that form before saving.') . '</div>',
     );
 
     // Always make sure we submit back to the proper page.
-    $form['#action'] = url('admin/build/pages/edit/' . $form_state['page']->task_name);
+    $form['#action'] = url('admin/structure/pages/edit/' . $form_state['page']->task_name);
     $form['save'] = array(
       '#type' => 'submit',
       '#value' => t('Save'),
@@ -1253,12 +1283,12 @@ function page_manager_save_page_form_submit(&$form, &$form_state) {
 /**
  * Discard changes to the page.
  */
-function page_manager_save_page_form_cancel(&$form, &$form_state) {
+function page_manager_save_page_form_cancel($form, &$form_state) {
   drupal_set_message(t('All pending changes have been discarded, and the page is now unlocked.'));
   page_manager_clear_page_cache($form_state['page']->task_name);
 
   if (!empty($form_state['page']->new)) {
-    $form_state['redirect'] = 'admin/build/pages';
+    $form_state['redirect'] = 'admin/structure/pages';
   }
 }
 
@@ -1268,9 +1298,9 @@ function page_manager_save_page_form_cancel(&$form, &$form_state) {
 /**
  * Add a new task handler.
  */
-function page_manager_handler_add(&$form, &$form_state) {
+function page_manager_handler_add($form, &$form_state) {
   // Get a list of possible task handlers for this task.
-  page_manager_handler_add_form($form, $form_state);
+  return page_manager_handler_add_form($form, $form_state);
 }
 
 /**
@@ -1288,6 +1318,7 @@ function page_manager_handler_add_submit(&$form, &$form_state) {
   else {
     $handler->conf['title'] = $plugin['title'];
   }
+  $handler->conf['name'] = $form_state['values']['name'];
   $cache->new_handler = $handler;
 
   // Figure out which forms to present them with
@@ -1356,7 +1387,7 @@ function page_manager_handler_add_cancel(&$form_state) {
 /**
  * Provide a consistent UI for adding handlers.
  */
-function page_manager_handler_add_form(&$form, $form_state, $features = array()) {
+function page_manager_handler_add_form($form, $form_state, $features = array()) {
   $task = $form_state['task'];
   $task_handler_plugins = page_manager_get_task_handler_plugins($task);
   if (empty($task_handler_plugins)) {
@@ -1378,6 +1409,21 @@ function page_manager_handler_add_form(&$form, $form_state, $features = array())
       '#title' => t('Title'),
       '#description' => t('Administrative title of this variant. If you leave blank it will be automatically assigned.'),
     );
+
+    $form['name'] = array(
+      '#type' => 'machine_name',
+      '#title' => t('Machine name'),
+      '#required' => FALSE,
+      '#description' => t("A unique machine-readable name for this variant. It must only contain lowercase letters, numbers, and underscores. This name will be used when exporting the variant. If left empty the variant's name will be used instead."),
+      '#size' => 32,
+      '#maxlength' => 32,
+      '#machine_name' => array(
+        'exists' => 'page_manager_handler_check_machine_name',
+        'source' => array('title'),
+      ),
+      '#field_prefix' => '<span dir="ltr">' . $form_state['task_name'] . '__',
+      '#field_suffix' => '</span>&lrm;',
+    );
   }
 
   $form['handler'] = array(
@@ -1388,10 +1434,8 @@ function page_manager_handler_add_form(&$form, $form_state, $features = array())
 
   // This set of checkboxes is not dangerous at all.
   $form['features'] = array(
-    '#type' => 'checkboxes',
-    '#validated' => TRUE,
+    '#type' => 'item',
     '#title' => t('Optional features'),
-    '#options' => array(),
     '#description' => t('Check any optional features you need to be presented with forms for configuring them. If you do not check them here you will still be able to utilize these features once the new page is created. If you are not sure, leave these unchecked.'),
     '#tree' => TRUE,
   );
@@ -1409,45 +1453,58 @@ function page_manager_handler_add_form(&$form, $form_state, $features = array())
 
       if ($plugin != 'default') {
         $form['features'][$plugin][$feature_id] += array(
-          '#process' => array('ctools_dependent_process'),
           '#dependency' => array('edit-handler' => array($plugin)),
         );
       }
     }
   }
+
+  return $form;
+}
+
+/*
+ * Check if handler's machine-name is unique
+ */
+function page_manager_handler_check_machine_name($name, $element, $form_state) {
+  $name = $form_state['task_name'] . '__' . $name;
+
+  return count(ctools_export_load_object('page_manager_handlers', 'names', array($name)));
 }
 
 /**
  * Rearrange the order of variants.
  */
-function page_manager_handler_import(&$form, &$form_state) {
+function page_manager_handler_import($form, &$form_state) {
   $form['title'] = array(
     '#type' => 'textfield',
     '#title' => t('Variant name'),
     '#description' => t('Enter the name of the new variant.'),
   );
 
-  if (user_access('use PHP for block visibility')) {
+  if (user_access('use ctools import')) {
     $form['object'] = array(
       '#type' => 'textarea',
       '#title' => t('Paste variant code here'),
       '#rows' => 15,
     );
   }
-  // Users ordinarily can't get here without the PHP block visibility perm.
-  // In case they somehow do, though, disable the form widget for extra safety.
+  // Users ordinarily can't get here without the 'import' permission, due to
+  // security implications. In case they somehow do, though, disable the form
+  // widget for extra safety.
   else {
     $form['shoveoff'] = array(
-      '#value' => '<div>' . t('You do not have sufficient permissions to perform this action.') . '</div>',
+      '#markup' => '<div>' . t('You do not have sufficient permissions to perform this action.') . '</div>',
     );
   }
+
+  return $form;
 }
 
 /**
  * Make sure that an import actually provides a handler.
  */
 function page_manager_handler_import_validate($form, &$form_state) {
-  if (!user_access('use PHP for block visibility')) {
+  if (!user_access('use ctools import')) {
     form_error($form['shoveoff'], t('You account permissions do not permit you to import.'));
     return;
   }
@@ -1470,7 +1527,7 @@ function page_manager_handler_import_validate($form, &$form_state) {
 /**
  * Clone an existing task handler into a new handler.
  */
-function page_manager_handler_import_submit($form, &$form_state) {
+function page_manager_handler_import_submit(&$form, &$form_state) {
   $handler = $form_state['handler'];
 
   page_manager_handler_add_to_page($form_state['page'], $handler, $form_state['values']['title']);
@@ -1484,7 +1541,7 @@ function page_manager_handler_import_submit($form, &$form_state) {
 /**
  * Rearrange the order of variants.
  */
-function page_manager_handler_rearrange(&$form, &$form_state) {
+function page_manager_handler_rearrange($form, &$form_state) {
   $page = $form_state['page'];
 
   $form['handlers'] = array('#tree' => TRUE);
@@ -1497,7 +1554,7 @@ function page_manager_handler_rearrange(&$form, &$form_state) {
     $plugin = page_manager_get_task_handler($handler->handler);
 
     $form['handlers'][$id]['title'] = array(
-      '#value' => page_manager_get_handler_title($plugin, $handler, $page->task, $page->subtask_id),
+      '#markup' => page_manager_get_handler_title($plugin, $handler, $page->task, $page->subtask_id),
     );
 
     $form['handlers'][$id]['weight'] = array(
@@ -1506,6 +1563,8 @@ function page_manager_handler_rearrange(&$form, &$form_state) {
       '#delta' => 30,
     );
   }
+
+  return $form;
 }
 
 function page_manager_handler_rearrange_submit(&$form, &$form_state) {
@@ -1548,7 +1607,7 @@ function _page_manager_handler_sort($a, $b) {
 /**
  * Rearrange the order of variants.
  */
-function page_manager_handler_delete(&$form, &$form_state) {
+function page_manager_handler_delete($form, &$form_state) {
   if ($form_state['handler']->type == t('Overridden')) {
     $text = t('Reverting the variant will delete the variant that is in the database, reverting it to the original default variant. This deletion will not be made permanent until you click Save.');
   }
@@ -1556,9 +1615,10 @@ function page_manager_handler_delete(&$form, &$form_state) {
     $text = t('Are you sure you want to delete this variant? This deletion will not be made permanent until you click Save.');
   }
   $form['markup'] = array(
-    '#value' => '<p>' . $text . '</p>',
+    '#markup' => '<p>' . $text . '</p>',
   );
 
+  return $form;
 }
 
 /**
@@ -1572,7 +1632,7 @@ function page_manager_handler_delete_submit(&$form, &$form_state) {
 /**
  * Entry point to export a page.
  */
-function page_manager_handler_export(&$form, &$form_state) {
+function page_manager_handler_export($form, &$form_state) {
   $export = page_manager_export_task_handler($form_state['handler']);
 
   $lines = substr_count($export, "\n");
@@ -1583,24 +1643,27 @@ function page_manager_handler_export(&$form, &$form_state) {
   );
 
   unset($form['buttons']);
+  return $form;
 }
 
 /**
  * Rearrange the order of variants.
  */
-function page_manager_handler_clone(&$form, &$form_state) {
+function page_manager_handler_clone($form, &$form_state) {
   // This provides its own button because it does something totally different.
   $form['title'] = array(
     '#type' => 'textfield',
     '#title' => t('Variant name'),
     '#description' => t('Enter the name of the new variant.'),
   );
+
+  return $form;
 }
 
 /**
  * Clone an existing task handler into a new handler.
  */
-function page_manager_handler_clone_submit($form, &$form_state) {
+function page_manager_handler_clone_submit(&$form, &$form_state) {
   $export = page_manager_export_task_handler($form_state['handler']);
   ob_start();
   eval($export);
@@ -1617,10 +1680,12 @@ function page_manager_handler_clone_submit($form, &$form_state) {
 /**
  * Form to enable a handler.
  */
-function page_manager_handler_enable(&$form, &$form_state) {
+function page_manager_handler_enable($form, &$form_state) {
   $form['markup'] = array(
-    '#value' => t('This variant is currently disabled. Enabling it will make it available in your system. This will not take effect until you save this page.'),
+    '#markup' => t('This variant is currently disabled. Enabling it will make it available in your system. This will not take effect until you save this page.'),
   );
+
+  return $form;
 }
 
 /**
@@ -1636,23 +1701,27 @@ function page_manager_handler_enable_submit(&$form, &$form_state) {
 /**
  * Form to disable a page.
  */
-function page_manager_handler_disable(&$form, &$form_state) {
+function page_manager_handler_disable($form, &$form_state) {
   $form['markup'] = array(
-    '#value' => t('This variant is currently enabled. Disabling it will make it unavailable in your system, and it will not be used. This will not take effect until you save this page.'),
+    '#markup' => t('This variant is currently enabled. Disabling it will make it unavailable in your system, and it will not be used. This will not take effect until you save this page.'),
   );
+
+  return $form;
 }
 
 /**
  * Form to disable a page.
  */
-function page_manager_handler_summary(&$form, &$form_state) {
+function page_manager_handler_summary($form, &$form_state) {
   $handler = $form_state['handler'];
   $page = $form_state['page'];
   $plugin = page_manager_get_task_handler($handler->handler);
 
   $form['markup'] = array(
-    '#value' => page_manager_get_handler_summary($plugin, $handler, $page, FALSE),
+    '#markup' => page_manager_get_handler_summary($plugin, $handler, $page, FALSE),
   );
+
+  return $form;
 }
 
 /**
@@ -1668,10 +1737,12 @@ function page_manager_handler_disable_submit(&$form, &$form_state) {
 /**
  * Break the lock on a page so that it can be edited.
  */
-function page_manager_break_lock(&$form, &$form_state) {
+function page_manager_break_lock($form, &$form_state) {
   $form['markup'] = array(
-    '#value' => t('Breaking the lock on this page will <strong>discard</strong> any pending changes made by the locking user. Are you REALLY sure you want to do this?')
+    '#markup' => t('Breaking the lock on this page will <strong>discard</strong> any pending changes made by the locking user. Are you REALLY sure you want to do this?')
   );
+
+  return $form;
 }
 
 /**
@@ -1690,10 +1761,12 @@ function page_manager_break_lock_submit(&$form, &$form_state) {
 /**
  * Form to enable a page.
  */
-function page_manager_enable_form(&$form, &$form_state) {
+function page_manager_enable_form($form, &$form_state) {
   $form['markup'] = array(
-    '#value' => t('Enabling this page will immediately make it available in your system (there is no need to wait for a save.)'),
+    '#markup' => t('Enabling this page will immediately make it available in your system (there is no need to wait for a save.)'),
   );
+
+  return $form;
 }
 
 /**
@@ -1717,10 +1790,12 @@ function page_manager_enable_form_submit(&$form, &$form_state) {
 /**
  * Form to disable a page.
  */
-function page_manager_disable_form(&$form, &$form_state) {
+function page_manager_disable_form($form, &$form_state) {
   $form['markup'] = array(
-    '#value' => t('Disabling this page will immediately make it unavailable in your system (there is no need to wait for a save.)'),
+    '#markup' => t('Disabling this page will immediately make it unavailable in your system (there is no need to wait for a save.)'),
   );
+
+  return $form;
 }
 
 /**
@@ -1744,7 +1819,7 @@ function page_manager_disable_form_submit(&$form, &$form_state) {
 /**
  * Print the summary information for a page.
  */
-function page_manager_page_summary(&$form, &$form_state) {
+function page_manager_page_summary($form, &$form_state) {
   $page = $form_state['page'];
 
   $output = '';
@@ -1788,10 +1863,12 @@ function page_manager_page_summary(&$form, &$form_state) {
     ),
   );
 
-  $output .= '<div class="links">' . theme('links', $links) . '</div>';
+  $output .= '<div class="links">' . theme('links', array('links' => $links)) . '</div>';
   $form['markup'] = array(
-    '#value' => $output,
+    '#markup' => $output,
   );
+
+  return $form;
 }
 
 /**
@@ -1823,5 +1900,5 @@ function page_manager_enable_page($disable, $js, $page) {
   }
 
   // For now $js is not actually in use on this.
-  drupal_goto('admin/build/pages');
+  drupal_goto('admin/structure/pages');
 }

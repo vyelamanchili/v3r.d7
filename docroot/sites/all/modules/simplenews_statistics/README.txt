@@ -6,11 +6,12 @@ easy to use interface.
 
 REQUIREMENTS
 ------------
- * Short URL
- * Simplenews
- * Views
+ * Simplenews.
+ * Views.
+ * The ability to send HTML email.
 
 INSTALLATION
 ------------
  1. Install and enable this module.
- 2. Configure settings at admin/settings/simplenews/statistics.
+ 2. Configure settings at admin/config/simplenews/statistics.
+ 3. View statistics for individual newsletters at node/%/simplenews_statistics.

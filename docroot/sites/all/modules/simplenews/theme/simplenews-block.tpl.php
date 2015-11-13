@@ -3,9 +3,9 @@
 /**
  * @file
  * Default theme implementation to display the simplenews block.
- *
+ * 
  * Copy this file in your theme directory to create a custom themed block.
- * Rename it to simplenews-block--<tid>.tpl.php to override it for a
+ * Rename it to simplenews-block--<tid>.tpl.php to override it for a 
  * newsletter using the newsletter term's id.
  *
  * Available variables:
@@ -16,7 +16,7 @@
  * - $form: newsletter subscription form *1
  * - $subscription_link: link to subscription form at 'newsletter/subscriptions' *1
  * - $newsletter_link: link to taxonomy list of the newsletter issue *2
- * - $issuelist: list of newsletters (of the $tid newsletter series) *2
+ * - $issue_list: list of newsletter issues (of the $tid newsletter series) *2
  * - $rssfeed: RSS feed of newsletter (series) *2
  * Note 1: requires 'subscribe to newsletters' permission
  * Note 2: requires 'view links in block' or 'administer newsletters' permission
@@ -36,7 +36,7 @@
   <?php endif; ?>
 
   <?php if ($use_form): ?>
-    <?php print $form; ?>
+    <?php print render($form); ?>
   <?php elseif ($subscription_link): ?>
     <p><?php print $subscription_link; ?></p>
   <?php endif; ?>
