@@ -1,5 +1,4 @@
 <?php
-// $Id: wizard.theme.inc,v 1.2 2009/01/29 22:12:05 merlinofchaos Exp $
 
 /**
  * @file
@@ -8,18 +7,16 @@
 
 function ctools_wizard_theme(&$theme) {
   $theme['ctools_wizard_trail'] = array(
-    'arguments' => array('trail'),
+    'variables' => array('trail' => NULL, 'form_info' => NULL, 'divider' => ' » '),
     'file' => 'includes/wizard.theme.inc',
   );
 }
 
 /**
- * Themable display of the 'breadcrumb' trail to show the order of the
- * forms.
+ * Themable display of the 'breadcrumb' trail to show the order of the forms.
  */
-function theme_ctools_wizard_trail($trail) {
-  if (!empty($trail)) {
-    return '<div class="wizard-trail">' . implode(' » ', $trail) . '</div>';
+function theme_ctools_wizard_trail($vars) {
+  if (!empty($vars['trail'])) {
+    return '<div class="wizard-trail">' . implode($vars['divider'], $vars['trail']) . '</div>';
   }
 }
-

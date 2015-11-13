@@ -1,5 +1,4 @@
 <?php
-// $Id: contemplate.install,v 1.5.2.5 2009/08/03 20:59:19 jrglasgow Exp $
 
 /**
  * @file
@@ -9,36 +8,35 @@
 function contemplate_schema() {
   $schema['contemplate_files'] = array(
     'fields' => array(
-      'site' => array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'description' => t('Which site in the site\s directory this is listed under' )),
-      'data' => array('type' => 'blob', 'size' => 'big', 'not null' => TRUE, 'description' => t('the data in the template file?'))
+      'site' => array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'description' => 'Which site in the site\s directory this is listed under' ),
+      'data' => array('type' => 'blob', 'size' => 'big', 'not null' => TRUE, 'description' => 'the data in the template file?')
     ),
     'unique keys' => array(
       'site' => array('site')
     ),
-    'description' => t('This tables lists the files that are use as templates'),
+    'description' => 'This tables lists the files that are use as templates',
   );
   $schema['contemplate'] = array(
-    'fields' => array(
-      'type' => array('type' => 'varchar', 'length' => '32', 'not null' => TRUE, 'default' => '', 'description' => t('What node type is this Template for?')),
-      'teaser' => array('type' => 'text', 'not null' => TRUE, 'description' => t('tempalte for teaser')),
-      'body' => array('type' => 'text', 'not null' => TRUE, 'description' => t('tempalte for body')),
-      'rss' => array('type' => 'text', 'not null' => TRUE, 'description' => t('tempalte for rss')),
-      'enclosure' => array('type' => 'varchar', 'length' => '128', 'not null' => TRUE, 'description' => t('enclosure information to be used with this node type.')),
-     'flags' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 7, 'disp-width' => '10', 'description' => t('bitmask of flags for this node type, which are enables, etc...'))
+    'fields'  => array(
+      'type'        => array('type' => 'varchar', 'length'    => '32',  'not null'    => TRUE, 'default' => '', 'description' => 'What node type is this Template for?'),
+      'teaser'      => array('type' => 'text',    'not null'  => TRUE,  'description' => 'tempalte for teaser'),
+      'body'        => array('type' => 'text',    'not null'  => TRUE,  'description' => 'tempalte for body'),
+      'rss'         => array('type' => 'text',    'not null'  => TRUE,  'description' => 'tempalte for rss'),
+      'enclosure'   => array('type' => 'varchar', 'length'    => '128', 'not null'    => TRUE, 'description' => 'enclosure information to be used with this node type.'),
+     'flags'        => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 7, 'disp-width' => '10', 'description' => 'Bitmask of flags for this node type, which are enabled, etc...')
     ),
     'indexes' => array(
       'type' => array('type')
     ),
-    'description' => t('Store data for Content Templates for each node type, if ther be any.'),
+    'description' => 'Store data for Content Templates for each node type, if there be any.',
   );
   return $schema;
 
 }
 
 function contemplate_install() {
-  drupal_install_schema('contemplate');
   db_query("UPDATE {system} SET weight = 10 WHERE name = 'contemplate'");
-  drupal_set_message(t('Database tables for ConTemplate module have been installed.'));
+  drupal_set_message(st('Database tables for ConTemplate module have been installed.'));
 }
 
 function contemplate_update_1() {
@@ -72,7 +70,7 @@ function contemplate_update_2() {
 }
 
 /**
- * clear the cache to get the updates to hook_menu().
+ * clear the cache to get the updates to the menu().
  */
 function contemplate_update_6102() {
   cache_clear_all();

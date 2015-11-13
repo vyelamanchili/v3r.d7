@@ -16,26 +16,30 @@ function insertAtCursor(myField, myValue) {
   } else {
     myField.value += myValue;
   }
+  return false;
 }
 
-// calling the function
-// insertAtCursor(document.formName.fieldName, ‘this value’);
+(function ($) {
 
-Drupal.contemplate = new Object();
+  // calling the function
+  // insertAtCursor(document.formName.fieldName, ‘this value’);
 
-Drupal.contemplate.toggle = function() {
-  var target = $(this).attr('rel');
-  if (this.checked) {
-    $(target).attr('disabled', false);
+  Drupal.contemplate = new Object();
+
+  Drupal.behaviors.contemplate = {
+    attach: function(context) {
+      $("input[id*=enable]:not(.contemplate-preprocessed)").addClass('contemplate-preprocessed').change(function () {
+        var target = $(this).attr('rel').replace(/.*toggletarget\|([-#a-z]*).*/, '$1');
+        if ($(this).is(':checked')) {
+          $(target).removeAttr('disabled');
+          $(target).focus();
+        }
+        else {
+          $(target).attr('disabled', true);
+        }
+        $(target + '-keys').css('opacity', $(this).is(':checked') ? 1 : .2);
+      });
+    }
   }
-  else {
-    $(target).attr('disabled', true);
-  }
-  $(target + '-keys').css('opacity', this.checked ? 1 : .2)
-}
 
-
-$(document).ready(function(){
-  $("input[id*=enable]")
-    .click(Drupal.contemplate.toggle)
-});
+})(jQuery);

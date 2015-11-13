@@ -1,12 +1,13 @@
 <?php
-// $Id: countdown.module,v 1.5 2008/05/12 13:36:55 deekayen Exp $
+// $Id: countdown.module,v 1.7 2009/11/19 02:11:01 deekayen Exp $
 
 /**
+ * @file
  * Count to, or from, a specified date and display the output in a block
  */
 
 /**
- * Describe the module in the HTML frontend
+ * Implement hook_help().
  *
  * @param string $section
  * @return string
@@ -22,20 +23,18 @@ function countdown_help($path, $arg) {
 }
 
 /**
- * Do all the block stuff
- *
- * @param string $op
- * @param integer $delta
- * @return string or array
+ * Implement hook_block_list().
  */
-function countdown_block($op = 'list', $delta = 0, $edit = array()) {
-  switch ($op) {
-  case 'list':
-    $blocks[0]['info'] = 'Countdown';
-    return $blocks;
-    break;
+function countdown_block_info() {
+  $blocks[0]['info'] = 'Countdown';
+  return $blocks;
+}
 
-  case 'configure':
+/**
+ * Implement hook_block_configure().
+ */
+function countdown_block_configure($delta = '') {
+  if ($delta == 0) {
     $form['countdown_event_name'] = array(
       '#type' => 'textfield',
       '#title' => t('Event Name'),
@@ -43,7 +42,16 @@ function countdown_block($op = 'list', $delta = 0, $edit = array()) {
       '#size' => 30,
       '#maxlength' => 200,
       '#description' => t("Event name you're counting to or from."),
-      '#required' => true
+      '#required' => TRUE
+    );
+    $form['countdown_url'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Event URL'),
+      '#default_value' => variable_get('countdown_url', ''),
+      '#size' => 30,
+      '#maxlength' => 200,
+      '#description' => t("Turn the event description into a link to more information about the event."),
+      '#required' => FALSE
     );
 
     $form['countdown_accuracy'] = array(
@@ -116,25 +124,34 @@ function countdown_block($op = 'list', $delta = 0, $edit = array()) {
     );
 
     return $form;
-    break;
-
-  case 'save':
-    variable_set('countdown_event_name', $edit['countdown_event_name']);
-    variable_set('countdown_accuracy', $edit['countdown_accuracy']);
-    variable_set('countdown_timestamp', mktime((int)$edit['hour'], (int)$edit['min'], (int)$edit['sec'], (int)$edit['month'], (int)$edit['day'], (int)$edit['year']));
-
-  case 'view':
-    if (user_access('access content')) {
-      $block['subject'] = variable_get('countdown_block_title', t('Countdown'));
-      $block['content'] = theme('countdown');
-      return $block;
-    }
-    break;
   }
 }
 
 /**
- * Implementation of hook_theme().
+ * Implement hook_block_save().
+ */
+function countdown_block_save($delta = '', $edit = array()) {
+  if ($delta == 0) {
+    variable_set('countdown_event_name', $edit['countdown_event_name']);
+    variable_set('countdown_url', $edit['countdown_url']);
+    variable_set('countdown_accuracy', $edit['countdown_accuracy']);
+    variable_set('countdown_timestamp', mktime((int)$edit['hour'], (int)$edit['min'], (int)$edit['sec'], (int)$edit['month'], (int)$edit['day'], (int)$edit['year']));
+  }
+}
+
+/**
+ * Implement hook_block_view().
+ */
+function countdown_block_view($delta = '') {
+  if (user_access('access content') && $delta == 0) {
+    $block['subject'] = variable_get('countdown_block_title', t('Countdown'));
+    $block['content'] = theme('countdown');
+    return $block;
+  }
+}
+
+/**
+ * Implement hook_theme().
  *
  * Theme function for similar block
  */

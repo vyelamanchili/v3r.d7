@@ -1,4 +1,4 @@
-// $Id: countdown.js,v 1.2.2.2 2008/05/12 15:29:47 deekayen Exp $
+// $Id: countdown.js,v 1.2 2008/05/12 15:28:25 deekayen Exp $
 
 var _countdown_accuracy, _countdown_freq, _countdown_interval, _countdown_direction, _countdown_this;
 
