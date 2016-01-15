@@ -7,7 +7,7 @@
  *
  * @package WordPress
  * @subpackage WP_Forge
- * @since WP-Forge 5.5.1.8
+ * @since WP-Forge 5.5.1.7
  */
 ?>
 	</section><!-- end .content-wrap -->
@@ -31,7 +31,7 @@
 
     </div><!-- end #footer_container -->
 
-<?php if( get_theme_mod( 'wpforge_mobile_display' ) == 'yes') { ?>
+<?php if( get_theme_mod( 'wpforge_mobile_display' ) == 'yes' || get_theme_mod( 'wpforge_nav_select' ) == 'offcanvas') { ?>
 
 	  <a class="exit-off-canvas"></a>
 

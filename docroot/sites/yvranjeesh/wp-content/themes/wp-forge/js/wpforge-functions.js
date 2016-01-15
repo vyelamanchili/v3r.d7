@@ -2,15 +2,13 @@
  * We use this file to add different elements to the theme via javascript i.e. the Back to Top code, which
  * appears when a user scrolls and when clicked will scroll the page up to the top for the user.
  *
- * @since WP-Forge 5.5.1.8
+ * @since WP-Forge 5.5.1.7
  */
 
 jQuery(document).ready(function(){
 
 	// Add button class to certain buttons in the theme
 	jQuery('input[type="submit"]').addClass('tiny radius button');
-	jQuery('.attachment-post-thumbnail').addClass('th');
-
 	
 	// Adds flex video to embeded video: http://foundation.zurb.com/docs/components/flex-video.html
 	jQuery('iframe[src*="vimeo.com"]').wrap('<div class="flex-video widescreen vimeo" />');

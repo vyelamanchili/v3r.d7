@@ -64,7 +64,7 @@
 			</figure><!-- .gallery-thumb -->
 
 			<p><em><?php printf( _n( 'This gallery contains <a %1$s>%2$s photo</a>.', 'This gallery contains <a %1$s>%2$s photos</a>.', $total_images, 'dusktodawn' ),
-					'href="' . get_permalink() . '" title="' . esc_attr( sprintf( __( 'Permalink to %s', 'dusktodawn' ), the_title_attribute( 'echo=0' ) ) ) . '" rel="bookmark"',
+					'href="' . esc_url( get_permalink() ) . '" title="' . esc_attr( sprintf( __( 'Permalink to %s', 'dusktodawn' ), the_title_attribute( 'echo=0' ) ) ) . '" rel="bookmark"',
 					number_format_i18n( $total_images )
 				); ?></em></p>
 			<?php endif; ?>

@@ -17,13 +17,13 @@ get_header(); ?>
 					</header><!-- .entry-header -->
 
 					<div class="entry-content">
-						<?php the_content( __( 'Read more', 'next-saturday' ) ); ?>
+						<?php the_content( __( 'Continue reading <span class="meta-nav">&rarr;</span>', 'next-saturday' ) ); ?>
 						<?php wp_link_pages( array( 'before' => '<div class="page-link"><p>' . __( 'Pages:', 'next-saturday' ), 'after' => '</p></div>' ) ); ?>
 					</div><!-- .entry-content -->
 
 					<div class="entry-meta-wrap">
 						<div class="entry-meta">
-							<?php edit_post_link( __( 'Edit this Entry', 'next-saturday' ), '<span class="edit-link">', '</span>' ); ?>
+							<?php edit_post_link( __( 'Edit', 'next-saturday' ), '<span class="edit-link">', '</span>' ); ?>
 						</div>
 					</div>
 

@@ -17,7 +17,7 @@ if ( post_password_required() )
 	<?php // You can start editing here -- including this comment! ?>
 
 	<?php if ( have_comments() ) : ?>
-		<h3 id="comments-title"><?php printf( _n( 'One Response', '%1$s Responses', get_comments_number(), 'next-saturday' ), number_format_i18n( get_comments_number() ), '<span>' . get_the_title() . '</span>' ); ?>
+		<h3 id="comments-title"><?php printf( _n( 'One response', '%1$s responses', get_comments_number(), 'next-saturday' ), number_format_i18n( get_comments_number() ), '<span>' . get_the_title() . '</span>' ); ?>
 			<?php if ( comments_open() ) : ?>
 				<a href="#respond" title="<?php esc_attr_e( 'Leave a comment', 'next-saturday' ); ?>"><?php _e( '&raquo;', 'next-saturday' ); ?></a>
 			<?php endif; ?>

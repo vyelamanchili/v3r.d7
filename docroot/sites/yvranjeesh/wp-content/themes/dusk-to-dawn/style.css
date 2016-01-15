@@ -1,15 +1,14 @@
 /*
 Theme Name: Dusk To Dawn
-Theme URI: http://theme.wordpress.com/themes/dusk-to-dawn/
-Author: Automattic
-Author URI: http://automattic.com/
+Theme URI: https://wordpress.com/themes/dusk-to-dawn/
 Description: A dark theme that melds old-style organic ornaments with modern design and typography. It features a custom header, custom background, and a widget area in the sidebar. It comes with support for several post formats including aside, gallery, image, quote, link, chat, and audio.
-Version: 1.3
+Version: 1.3.2
+Author: Automattic
+Author URI: https://wordpress.com/themes/
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
-Tags: black, blue, purple, dark, two-columns, left-sidebar, right-sidebar, fixed-width, custom-background, custom-colors, custom-header, custom-menu, featured-images, full-width-template, microformats, post-formats, rtl-language-support, sticky-post, theme-options, translation-ready
+Tags: black, blue, purple, dark, two-columns, left-sidebar, right-sidebar, fixed-layout, custom-background, custom-colors, custom-header, custom-menu, featured-images, full-width-template, microformats, post-formats, rtl-language-support, sticky-post, theme-options, translation-ready
 */
-
 
 /* =Reset default browser CSS. Based on work by Eric Meyer: http://meyerweb.com/eric/tools/css/reset/index.html
 -------------------------------------------------------------- */
@@ -1242,7 +1241,7 @@ ol .comment-body ol ul {
 }
 
 
-/* =WP.com
+/* =Jetpack: Stats
 -------------------------------------------------------------- */
 
 #wpstats {

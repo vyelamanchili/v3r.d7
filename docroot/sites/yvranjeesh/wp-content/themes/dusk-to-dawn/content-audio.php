@@ -38,7 +38,7 @@
 					<audio controls preload="auto" autobuffer id="audio-player-<?php the_ID(); ?>" src="<?php echo esc_url( $url ); ?>">
 						<source src="<?php echo esc_url( $url ); ?>" type="<?php echo esc_attr( get_post_mime_type( $audio->ID ) ); ?>" />
 					</audio>
-					<p class="audio-file-link"><?php printf( __( 'Download: %1$s', 'dusktodawn' ), '<a href="' . esc_url( $url ) . '">' . get_the_title( $audio->ID ) . '</a>' ); ?></p>
+					<p class="audio-file-link"><?php printf( __( 'Download: %1$s', 'dusktodawn' ), '<a href="' . esc_url( $url ) . '">' . esc_html( get_the_title( $audio->ID ) ) . '</a>' ); ?></p>
 				</div>
 			<?php endif; ?>
 		<?php endif; ?>

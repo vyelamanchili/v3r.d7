@@ -11,7 +11,7 @@
 					<?php do_action( 'dusk_to_dawn_credits' ); ?>
 					<a href="http://wordpress.org/" title="<?php esc_attr_e( 'A Semantic Personal Publishing Platform', 'dusk_to_dawn' ); ?>" rel="generator"><?php printf( __( 'Proudly powered by %s', 'dusk_to_dawn' ), 'WordPress' ); ?></a>
 					<span class="sep"> | </span>
-					<?php printf( __( 'Theme: %1$s by %2$s.', 'dusk_to_dawn' ), 'Dusk To Dawn', '<a href="http://automattic.com/" rel="designer">Automattic</a>' ); ?>
+					<?php printf( __( 'Theme: %1$s by %2$s.', 'dusk_to_dawn' ), 'Dusk To Dawn', '<a href="https://wordpress.com/themes/" rel="designer">WordPress.com</a>' ); ?>
 				</div>
 			</footer><!-- #colophon -->
 		</div><!-- #wrapper -->

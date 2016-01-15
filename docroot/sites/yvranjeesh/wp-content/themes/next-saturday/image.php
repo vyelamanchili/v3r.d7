@@ -80,7 +80,7 @@ get_header(); ?>
 					<div class="entry-meta-wrap">
 						<div class="entry-meta">
 							<span class="comments-num"><?php comments_popup_link( __( 'Leave a comment', 'next-saturday' ), __( '1 Comment', 'next-saturday' ), __( '% Comments', 'next-saturday' ) ); ?></span>
-							<?php edit_post_link( __( 'Edit this Entry', 'next-saturday' ), '<span class="edit-link">', '</span>' ); ?>
+							<?php edit_post_link( __( 'Edit', 'next-saturday' ), '<span class="edit-link">', '</span>' ); ?>
 						</div>
 					</div>
 

@@ -19,13 +19,6 @@
 /**
  * Setup the WordPress core custom header feature.
  *
- * Use add_theme_support to register support for WordPress 3.4+
- * as well as provide backward compatibility for previous versions.
- * Use feature detection of wp_get_theme() which was introduced
- * in WordPress 3.4.
- *
- * @todo Rework this function to remove WordPress 3.4 support when WordPress 3.6 is released.
- *
  * @uses next_saturday_header_style()
  * @uses next_saturday_admin_header_style()
  * @uses next_saturday_admin_header_image()
@@ -33,7 +26,7 @@
  * @package Next Saturday
  */
 function next_saturday_custom_header_setup() {
-	$args = array(
+	add_theme_support( 'custom-header', apply_filters( 'next_saturday_custom_header_args', array(
 		'default-image'          => '',
 		'default-text-color'     => 'f3d769',
 		'width'                  => 615,
@@ -41,20 +34,7 @@ function next_saturday_custom_header_setup() {
 		'wp-head-callback'       => 'next_saturday_header_style',
 		'admin-head-callback'    => 'next_saturday_admin_header_style',
 		'admin-preview-callback' => '',
-	);
-
-	$args = apply_filters( 'next_saturday_custom_header_args', $args );
-
-	if ( function_exists( 'wp_get_theme' ) ) {
-		add_theme_support( 'custom-header', $args );
-	} else {
-		// Compat: Versions of WordPress prior to 3.4.
-		define( 'HEADER_TEXTCOLOR',    $args['default-text-color'] );
-		define( 'HEADER_IMAGE',        $args['default-image'] );
-		define( 'HEADER_IMAGE_WIDTH',  $args['width'] );
-		define( 'HEADER_IMAGE_HEIGHT', $args['height'] );
-		add_custom_image_header( $args['wp-head-callback'], $args['admin-head-callback'], $args['admin-preview-callback'] );
-	}
+	) ) );
 }
 add_action( 'after_setup_theme', 'next_saturday_custom_header_setup' );
 
