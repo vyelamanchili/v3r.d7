@@ -72,20 +72,10 @@ add_action( 'wp_enqueue_scripts', 'next_saturday_audio_script' );
  * Hooks into the after_setup_theme action.
  */
 function next_saturday_custom_background() {
-	$args = array(
+	add_theme_support( 'custom-background', apply_filters( 'next_saturday_custom_background_args', array(
 		'default-color' => '',
 		'default-image' => '',
-	);
-
-	$args = apply_filters( 'next_saturday_custom_background_args', $args );
-
-	if ( function_exists( 'wp_get_theme' ) ) {
-		add_theme_support( 'custom-background', $args );
-	} else {
-		define( 'BACKGROUND_COLOR', $args['default-color'] );
-		define( 'BACKGROUND_IMAGE', $args['default-image'] );
-		add_custom_background();
-	}
+	) ) );
 }
 add_action( 'after_setup_theme', 'next_saturday_custom_background' );
 
@@ -156,7 +146,7 @@ function next_saturday_content_nav( $nav_id ) {
 	global $wp_query;
 
 	if ( $wp_query->max_num_pages > 1 ) : ?>
-	<nav id="<?php echo $nav_id; ?>">
+	<nav id="<?php echo esc_attr( $nav_id ); ?>">
 		<h3 class="assistive-text"><?php _e( 'Post navigation', 'next-saturday' ); ?></h3>
 		<span class="nav-previous"><?php next_posts_link( __( '<span class="meta-nav">&larr;</span> Older <span>posts</span>', 'next-saturday' ) ); ?></span>
 		<span class="nav-next"><?php previous_posts_link( __( 'Newer <span>posts</span> <span class="meta-nav">&rarr;</span>', 'next-saturday' ) ); ?></span>
@@ -177,7 +167,7 @@ function next_saturday_comment( $comment, $args, $depth ) {
 		case 'trackback' :
 	?>
 	<li class="pingback">
-		<p><?php _e( 'Pingback:', 'next-saturday' ); ?> <?php comment_author_link(); ?><?php edit_comment_link( __( '(Edit)', 'next-saturday' ), ' ' ); ?></p>
+		<p><?php _e( 'Pingback:', 'next-saturday' ); ?> <?php comment_author_link(); ?><?php edit_comment_link( __( 'Edit', 'next-saturday' ), ' ' ); ?></p>
 	<?php
 			break;
 		default :
@@ -205,7 +195,7 @@ function next_saturday_comment( $comment, $args, $depth ) {
 						);
 					?>
 
-					<?php edit_comment_link( __( '[Edit]', 'next-saturday' ), ' ' ); ?>
+					<?php edit_comment_link( __( 'Edit', 'next-saturday' ), ' ' ); ?>
 				</div><!-- .comment-author .vcard -->
 
 				<?php if ( $comment->comment_approved == '0' ) : ?>
@@ -269,11 +259,9 @@ if ( ! function_exists( 'the_post_format_audio' ) ) :
 /**
  * Shiv for the_post_format_audio().
  *
- * the_post_format_audio() was introduced to WordPress in version 3.6. To
- * provide backward compatibility with previous versions, we will define our
+ * the_post_format_audio() is part of a core plugin. To provide backward
+ * compatibility with previous versions, we will define our
  * own version of this function.
- *
- * @todo Remove this function when WordPress 3.8 is released.
  *
  * @param string $name The name of the shortcode.
  * @return bool True if shortcode exists; False otherwise.

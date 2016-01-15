@@ -1,13 +1,13 @@
 /*
 Theme Name: Next Saturday
-Theme URI: http://theme.wordpress.com/themes/next-saturday/
+Theme URI: https://wordpress.com/themes/next-saturday/
+Description: Add a touch of childlike innocence to your blog with Next Saturday, a bold and playful theme. Originally designed by Ian Mintz, Next Saturday features styling for muliple post formats, custom background and header support, and a right sidebar.
+Version: 1.3
 Author: Ian Mintz
 Author URI: http://www.ianmintz.com/
-Version: 1.2.1
-Description: Add a touch of childlike innocence to your blog with Next Saturday, a bold and playful theme. Originally designed by Ian Mintz, Next Saturday features styling for muliple post formats, custom background and header support, and a right sidebar.
-Tags: dark, blue, brown, green, red, yellow, two-columns, right-sidebar, fixed-width, custom-background, custom-header, custom-menu, sticky-post, rtl-language-support, translation-ready, post-formats
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Tags: dark, blue, brown, green, red, yellow, two-columns, right-sidebar, fixed-layout, custom-background, custom-header, custom-menu, sticky-post, rtl-language-support, translation-ready, post-formats
 */
 
 /* =Reset HTML
@@ -438,7 +438,8 @@ div.wrapper-bottom {
 	top: 5px;
 }
 a.entry-date-link,
-a.entry-date-link:hover {
+a.entry-date-link:hover,
+a.entry-date-link:visited {
 	color: #fff;
 	text-decoration: none;
 }

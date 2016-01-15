@@ -3,71 +3,13 @@
  * @package Next_Saturday
  */
 
-if ( function_exists( 'get_the_post_format_url' ) && ! function_exists( 'next_saturday_url_grabber' ) ) {
-/**
- * Return the URL for the first link found in this post.
- *
- * @param string $the_content Post content, falls back to current post content if empty.
- * @return string URL or false when no link is present.
- */
-function next_saturday_url_grabber( $the_content = '' ) {
-	if ( empty( $the_content ) )
-		$the_content = get_the_content();
-
-	$url = get_the_post_format_url();
-	if ( empty( $url ) )
-		$url = get_content_url( $the_content );
-
-	return esc_url_raw( $url );
-}
-} // if ( function_exists( 'get_the_post_format_url' ) )
-
-if ( function_exists( 'get_the_post_format_image' ) && ! function_exists( 'next_saturday_image_grabber' ) ) {
-/**
- * Return the HTML output for first image found for a post.
- *
- * @param int $post_id ID for parent post
- * @param string $the_content
- * @param string $before Optional before string
- * @param string $after Optional after string
- * @return string HTML output or false if no match
- */
-function next_saturday_image_grabber( $post_id, $the_content = '', $before = '', $after = '' ) {
-	preg_match( WPCOM_THEMES_IMAGE_REGEX, get_the_post_format_image(), $matches );
-	$image = isset( $matches[0] ) ? $matches[0] : '';
-
-	// Add wrapper markup, if specified
-	if ( ! empty( $before ) )
-		$image = $before . $image;
-	if ( ! empty( $after ) )
-		$image = $image . $after;
-
-	return $image;
-}
-} // if ( function_exists( 'get_the_post_format_image' ) )
-
-if ( function_exists( 'get_the_post_format_media' ) && ! function_exists( 'next_saturday_audio_grabber' ) ) {
-/**
- * Return the first audio file found for a post.
- *
- * @param int $post_id ID for parent post.
- * @return string Path to audio file.
- */
-function next_saturday_audio_grabber( $post_id ) {
-	$null = null;
-	preg_match( '/src=[\'"](.+?)[\'"]/is', get_the_post_format_media( 'audio', $null, 1 ), $matches );
-
-	return isset( $matches[1] ) ? esc_url( $matches[1] ) : '';
-}
-} // if ( function_exists( 'get_the_post_format_media' ) )
-
 // Define common regex lookup patterns
 if ( ! defined( 'WPCOM_THEMES_IMAGE_REGEX' ) )
 	define( 'WPCOM_THEMES_IMAGE_REGEX', '/(<img.+src=[\'"]([^\'"]+)[\'"].*?>)/i' );
 if ( ! defined( 'WPCOM_THEMES_IMAGE_REPLACE_REGEX' ) )
 	define( 'WPCOM_THEMES_IMAGE_REPLACE_REGEX', '/\[caption.*\[\/caption\]|<img[^>]+./' );
 
-if ( ! function_exists( 'next_saturday_url_grabber' ) ) {
+if ( ! function_exists( 'next_saturday_url_grabber' ) ) :
 /**
  * Return the URL for the first link found in this post.
  *
@@ -76,15 +18,19 @@ if ( ! function_exists( 'next_saturday_url_grabber' ) ) {
  */
 function next_saturday_url_grabber( $the_content = '' ) {
 	if ( empty( $the_content ) )
-		$the_content = get_the_content();
-	if ( ! preg_match( '/<a\s[^>]*?href=[\'"](.+?)[\'"]/is', $the_content, $matches ) )
-		return false;
+		$the_content = make_clickable( get_the_content() );
 
-	return esc_url_raw( $matches[1] );
+	if ( function_exists( 'get_url_in_content' ) )
+		return get_url_in_content( $the_content );
+
+	if ( preg_match( '/<a\s[^>]*?href=([\'"])(.+?)\1/is', $the_content, $matches ) )
+		return esc_url_raw( $matches[1] );
+
+	return '';
 }
-} // if ( ! function_exists( 'next_saturday_url_grabber' ) )
+endif; // if ( ! function_exists( 'next_saturday_url_grabber' ) )
 
-if ( ! function_exists( 'next_saturday_image_grabber' ) ) {
+if ( ! function_exists( 'next_saturday_image_grabber' ) ) :
 /**
  * Return the HTML output for first image found for a post.
  *
@@ -124,9 +70,9 @@ function next_saturday_image_grabber( $post_id, $the_content = '', $before = '',
 
 	return false;
 }
-} // if ( ! function_exists( 'next_saturday_image_grabber' ) )
+endif; // if ( ! function_exists( 'next_saturday_image_grabber' ) )
 
-if ( ! function_exists( 'next_saturday_audio_grabber' ) ) {
+if ( ! function_exists( 'next_saturday_audio_grabber' ) ) :
 /**
  * Return the first audio file found for a post.
  *
@@ -134,13 +80,20 @@ if ( ! function_exists( 'next_saturday_audio_grabber' ) ) {
  * @return boolean|string Path to audio file.
  */
 function next_saturday_audio_grabber( $post_id ) {
-	global $wpdb;
+	if ( function_exists( 'get_attached_media' ) )
+		return array_shift( get_attached_media( 'audio', $post_id ) );
 
-	$first_audio = $wpdb->get_var( $wpdb->prepare( "SELECT guid FROM $wpdb->posts WHERE post_parent = %d AND post_type = 'attachment' AND INSTR(post_mime_type, 'audio') ORDER BY menu_order ASC LIMIT 0,1", (int) $post_id ) );
+	$audios = get_children( array(
+		'post_parent'    => $post_id,
+		'post_type'      => 'attachment',
+		'post_mime_type' => 'audio',
+		'posts_per_page' => -1,
+		'orderby'        => 'menu_order',
+		'order'          => 'ASC',
+	) );
 
-	if ( ! empty( $first_audio ) )
-		return $first_audio;
+	$audios = (array) apply_filters( 'get_attached_media', $audios, 'audio', get_post( $post_id ) );
 
-	return false;
+	return array_shift( $audios );
 }
-} // if ( ! function_exists( 'next_saturday_audio_grabber' ) )
+endif; // if ( ! function_exists( 'next_saturday_audio_grabber' ) )

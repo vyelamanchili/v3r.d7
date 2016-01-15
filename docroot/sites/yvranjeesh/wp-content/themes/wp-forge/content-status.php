@@ -4,7 +4,7 @@
  *
  * @package WordPress
  * @subpackage WP_Forge
- * @since WP-Forge 5.5.1.8
+ * @since WP-Forge 5.5.1.7
  */
 ?>
 
@@ -28,7 +28,11 @@
 		</div><!-- .entry-content -->
 
 		<footer class="entry-meta">
-			<?php wpforge_entry_meta_footer(); ?>
+			<div class="entry-meta-footer">
+				<?php  if( get_theme_mod( 'wpforge_tag_display','yes' ) == 'yes') { ?>
+					<?php wpforge_entry_meta_footer(); ?>
+				<?php } // end if ?>
+			</div><!-- end .entry-meta-footer -->
 			<?php get_template_part( 'content', 'author' ); ?>
 		</footer><!-- .entry-meta -->
 	</article><!-- #post -->

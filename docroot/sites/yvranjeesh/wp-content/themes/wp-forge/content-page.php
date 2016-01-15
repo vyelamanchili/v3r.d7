@@ -4,13 +4,18 @@
  *
  * @package WordPress
  * @subpackage WP_Forge
- * @since WP-Forge 5.5.1.8
+ * @since WP-Forge 5.5.1.7
  */
 ?>
 
 	<article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
 		<header class="entry-header">
 			<h1 class="entry-title"><?php the_title(); ?></h1>
+			<?php if (! is_page_template('page-templates/front-page.php') || ! is_page_template( 'page-templates/full-width.php')) : ?>
+				<?php the_post_thumbnail('full-width-thumb'); ?>
+			<?php else : ?>
+				<?php the_post_thumbnail(); ?>
+			<?php endif; ?>			
 		</header>
 
 		<div class="entry-content">

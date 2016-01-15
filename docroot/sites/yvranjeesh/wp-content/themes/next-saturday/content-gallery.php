@@ -22,13 +22,13 @@
 
 		<div class="entry-content">
 			<?php if ( is_single() ) : ?>
-				<?php the_content( __( 'Read more <span class="meta-nav">&rarr;</span>', 'next-saturday' ) ); ?>
+				<?php the_content( __( 'Continue reading <span class="meta-nav">&rarr;</span>', 'next-saturday' ) ); ?>
 			<?php else : ?>
 				<?php
 					$pattern = get_shortcode_regex();
 					preg_match( "/$pattern/s", get_the_content(), $match );
-					$atts    = shortcode_parse_atts( $match[3] );
-					$images  = isset( $atts['ids'] ) ? explode( ',', $atts['ids'] ) : false;
+					$atts   = isset( $match[3] ) ? shortcode_parse_atts( $match[3] ) : array();
+					$images = isset( $atts['ids'] ) ? explode( ',', $atts['ids'] ) : false;
 
 					if ( ! $images ) :
 						$images = get_posts( array(
@@ -46,11 +46,10 @@
 					if ( $images ) :
 						$total_images  = count( $images );
 						$image         = array_shift( $images );
-						$image_img_tag = wp_get_attachment_image( $image, 'large' );
 				?>
 
 				<div class="gallery-thumb">
-					<a href="<?php the_permalink(); ?>"><?php echo $image_img_tag; ?></a>
+					<a href="<?php the_permalink(); ?>"><?php echo wp_get_attachment_image( $image, 'large' ); ?></a>
 				</div><!-- .gallery-thumb -->
 
 				<p><span class="gallery-summary"><?php printf( _n( 'This gallery contains <a href="%1$s" rel="bookmark">%2$s photo</a>.', 'This gallery contains <a href="%1$s" rel="bookmark">%2$s photos</a>.', $total_images, 'next-saturday' ),
@@ -66,7 +65,7 @@
 		<div class="entry-meta-wrap">
 			<div class="entry-meta">
 				<span class="comments-num"><?php comments_popup_link( __( 'Leave a comment', 'next-saturday' ), __( '1 Comment', 'next-saturday' ), __( '% Comments', 'next-saturday' ) ); ?></span>
-				<?php edit_post_link( __( 'Edit this Entry', 'next-saturday' ), '<span class="edit-link">', '</span>' ); ?>
+				<?php edit_post_link( __( 'Edit', 'next-saturday' ), '<span class="edit-link">', '</span>' ); ?>
 			</div>
 		</div>
 

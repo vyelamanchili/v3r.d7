@@ -1,5 +1,9 @@
 == Changelog ==
 
+= 1.3 Jun 16 2015 =
+* Minor bug fixes
+* Escaping fixes
+
 = 1.2 May 22 2013 =
 * Use a filter to modify the output of wp_title()
 * Enqueue scripts and styles via callback

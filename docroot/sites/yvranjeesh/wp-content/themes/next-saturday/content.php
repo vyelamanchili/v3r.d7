@@ -24,7 +24,7 @@
 				if ( is_search() ) :
 					the_excerpt();
 				else :
-					the_content( __( 'Read more', 'next-saturday' ) );
+					the_content( __( 'Continue reading <span class="meta-nav">&rarr;</span>', 'next-saturday' ) );
 				endif;
 			?>
 			<?php wp_link_pages( array( 'before' => '<div class="page-link"><p>' . __( 'Pages:', 'next-saturday' ), 'after' => '</p></div>' ) ); ?>
@@ -34,7 +34,7 @@
 			<div class="entry-meta">
 				<?php next_saturday_entry_meta(); ?>
 				<span class="comments-num"><?php comments_popup_link( __( 'Leave a comment', 'next-saturday' ), __( '1 Comment', 'next-saturday' ), __( '% Comments', 'next-saturday' ) ); ?></span>
-				<?php edit_post_link( __( 'Edit this Entry', 'next-saturday' ), '<span class="edit-link">', '</span>' ); ?>
+				<?php edit_post_link( __( 'Edit', 'next-saturday' ), '<span class="edit-link">', '</span>' ); ?>
 			</div>
 		</div>
 

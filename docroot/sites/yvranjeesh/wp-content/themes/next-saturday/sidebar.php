@@ -6,6 +6,7 @@
 
 	<div id="secondary-wrapper" class="widget-area" role="complementary">
 		<div id="secondary" class="highlight-box">
+		<?php do_action( 'before_sidebar' ); ?>
 
 			<?php // The primary sidebar used in all layouts
 			if ( ! dynamic_sidebar( 'sidebar-1' ) ) : ?>

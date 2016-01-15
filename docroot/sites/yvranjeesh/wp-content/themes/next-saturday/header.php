@@ -13,7 +13,7 @@
 <!--[if IE 9]>
 <html id="ie9" <?php language_attributes(); ?>>
 <![endif]-->
-<!--[if !(IE 7) | !(IE 8) | !(IE 9)  ]><!-->
+<!--[if !(IE 7) & !(IE 8) & !(IE 9)]><!-->
 <html <?php language_attributes(); ?>>
 <!--<![endif]-->
 <head>
@@ -29,6 +29,7 @@
 
 <body <?php body_class(); ?>>
 <div id="wrapper" class="hfeed">
+<?php do_action( 'before' ); ?>
 
 	<nav id="access" role="navigation">
 	  <?php /*  Allow screen readers / text browsers to skip the navigation menu and get right to the good stuff */ ?>

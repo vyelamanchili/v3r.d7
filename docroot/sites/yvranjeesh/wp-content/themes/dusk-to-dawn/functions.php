@@ -59,31 +59,17 @@ endif; // dusktodawn_setup
 
 // Tell WordPress to run dusktodawn_setup() when the 'after_setup_theme' hook is run.
 add_action( 'after_setup_theme', 'dusktodawn_setup' );
+
 /**
  * Setup the WordPress core custom background feature.
- *
- * Use add_theme_support to register support for WordPress 3.4+
- * as well as provide backward compatibility for previous versions.
- * Use feature detection of wp_get_theme() which was introduced
- * in WordPress 3.4.
  *
  * Hooks into the after_setup_theme action.
  */
 function dusktodawn_register_custom_background() {
-	$args = array(
+	add_theme_support( 'custom-background', apply_filters( 'dusktodawn_custom_background_args', array(
 		'default-color' => '',
 		'default-image' => '',
-	);
-
-	$args = apply_filters( 'coraline_custom_background_args', $args );
-
-	if ( function_exists( 'wp_get_theme' ) ) {
-		add_theme_support( 'custom-background', $args );
-	} else {
-		define( 'BACKGROUND_COLOR', $args['default-color'] );
-		define( 'BACKGROUND_IMAGE', $args['default-image'] );
-		add_custom_background();
-	}
+	) ) );
 }
 add_action( 'after_setup_theme', 'dusktodawn_register_custom_background' );
 
@@ -134,7 +120,7 @@ function dusktodawn_content_nav( $nav_id ) {
 	global $wp_query;
 
 	?>
-	<nav id="<?php echo $nav_id; ?>" class="clear-fix">
+	<nav id="<?php echo esc_attr( $nav_id ); ?>" class="clear-fix">
 		<h1 class="assistive-text section-heading"><?php _e( 'Post navigation', 'dusktodawn' ); ?></h1>
 
 	<?php if ( is_single() ) : // navigation links for single posts ?>
@@ -414,14 +400,5 @@ require get_template_directory() . '/inc/theme-options.php';
 /**
  * Load Jetpack compatibility file.
  */
-require get_template_directory() . '/inc/jetpack.compat.php';
-
-/**
- * Load WP.com specific functions.
- */
-if ( defined( 'IS_WPCOM' ) && IS_WPCOM )
-	require get_template_directory() . '/inc/wpcom.php';
-
-/**
- * This theme was built with PHP, Semantic HTML, CSS, love, and a Toolbox.
- */
+if ( file_exists( get_template_directory() . '/inc/jetpack.php' ) )
+	require get_template_directory() . '/inc/jetpack.php';
