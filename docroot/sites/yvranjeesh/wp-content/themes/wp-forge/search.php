@@ -4,7 +4,7 @@
  *
  * @package WordPress
  * @subpackage WP_Forge
- * @since WP-Forge 5.5.1.8
+ * @since WP-Forge 5.5.1.7
  */
 
 get_header(); ?>
@@ -21,7 +21,7 @@ get_header(); ?>
 
 			<?php /* Start the Loop */ ?>
 			<?php while ( have_posts() ) : the_post(); ?>
-				<?php get_template_part( 'content', 'loop' ); ?>
+				<?php get_template_part( 'content', get_post_format() ); ?>
 			<?php endwhile; ?>
 
 			<?php wpforge_content_nav( 'nav-below' ); ?>

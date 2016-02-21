@@ -1,7 +1,0 @@
-; $Id: ahah_test_module.info,v 1.0.0.0 2010/06/07 00:00:00 vyelamanchili Exp $
-name = AHAH TEST
-description = AHAH
-core = 6.x
-version = 6.x-1.0
-project = ahah_test_module
-package = MBDA Modules

@@ -140,8 +140,7 @@ function dusktodawn_get_theme_options() {
 function theme_options_render_page() {
 	?>
 	<div class="wrap">
-		<?php screen_icon(); ?>
-		<?php $theme_name = function_exists( 'wp_get_theme' ) ? wp_get_theme() : get_current_theme(); ?>
+		<?php $theme_name = wp_get_theme(); ?>
 		<h2><?php printf( __( '%s Theme Options', 'dusktodawn' ), $theme_name ); ?></h2>
 		<?php settings_errors(); ?>
 

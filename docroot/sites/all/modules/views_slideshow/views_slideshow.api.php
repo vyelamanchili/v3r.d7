@@ -105,18 +105,13 @@ function hook_views_slideshow_options_form_submit($form, &$form_state) {
 function hook_views_slideshow_skin_info() {
   return array(
     'default' => array(
-      'name' => array(
-        t('Default'),
-      ),
+      'name' => t('Default'),
     ),
   );
 }
 
 /**
  * Define new widgets (pagers, controls, counters).
- *
- * @return
- *  Array keyed by the widget names.
  *
  * Available events for accepts and calls
  *  - pause
@@ -126,6 +121,9 @@ function hook_views_slideshow_skin_info() {
  *  - goToSlide
  *  - transitionBegin
  *  - transitionEnd
+ *
+ * @return
+ *  Array keyed by the widget names.
  */
 function hook_views_slideshow_widget_info() {
   return array(

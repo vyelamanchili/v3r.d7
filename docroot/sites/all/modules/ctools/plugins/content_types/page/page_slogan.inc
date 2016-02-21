@@ -1,5 +1,4 @@
 <?php
-// $Id: page_slogan.inc,v 1.1.2.2 2010/02/02 21:49:21 merlinofchaos Exp $
 
 /**
  * @file
@@ -15,7 +14,7 @@ $plugin = array(
   'title' => t('Site slogan'),
   'single' => TRUE,
   'icon' => 'icon_page.png',
-  'description' => t('Add the slogan trail as content.'),
+  'description' => t("Add the site's slogan as content."),
   'category' => t('Page elements'),
   'render last' => TRUE,
 );
@@ -27,7 +26,7 @@ $plugin = array(
  */
 function ctools_page_slogan_content_type_render($subtype, $conf, $panel_args) {
   $block = new stdClass();
-  $block->content = (theme_get_setting('toggle_slogan') ? filter_xss_admin(variable_get('site_slogan', '')) : '');
+  $block->content = filter_xss_admin(variable_get('site_slogan', ''));
 
   return $block;
 }

@@ -2,26 +2,30 @@
 
 /**
  * @file
- * Install, update and uninstall functions for the Mime Mail module.
+ * Install, update and uninstall functions for Mime Mail module.
  */
 
 /**
- * Implements hook_install().
+ * Implements hook_enable().
  */
-function mimemail_install() {
-  $perm = explode(', ', db_result(db_query("SELECT perm FROM {permission} WHERE rid=%d", DRUPAL_AUTHENTICATED_RID)));
-  $perm = implode(', ', array_merge($perm, array('edit mimemail user settings')));
-  $record = array('rid' => DRUPAL_AUTHENTICATED_RID, 'perm' => $perm);
-  drupal_write_record('permission', $record, 'rid');
+function mimemail_enable() {
+  module_load_include('module', 'mailsystem');
+  mailsystem_set(
+    array(
+      mailsystem_default_id() => 'MimeMailSystem',
+      'mimemail' => 'MimeMailSystem',
+    )
+  );
+
+  user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, array('edit mimemail user settings'));
 }
 
 /**
  * Implements hook_disable().
  */
 function mimemail_disable() {
-  if (strpos(variable_get('smtp_library', ''), 'mimemail') !== FALSE) {
-    variable_del('smtp_library');
-  }
+  mailsystem_clear(array('mimemail' => 'MimeMailSystem'));
+  variable_set('mimemail_alter', FALSE);
 }
 
 /**
@@ -36,8 +40,12 @@ function mimemail_uninstall() {
     'mimemail_key',
     'mimemail_textonly',
     'mimemail_sitestyle',
+    'mimemail_name',
+    'mimemail_mail',
+    'mimemail_format',
+    'mimemail_simple_address',
     'mimemail_linkonly',
-    'mimemail_preserve_class',
+    'mimemail_preserve_class'
   );
   foreach ($variables as $variable) {
     variable_del($variable);
@@ -45,15 +53,61 @@ function mimemail_uninstall() {
 }
 
 /**
- * Implements hook_update_N().
+ * Implements hook_requirements().
+ *
+ * Ensures that the newly-required Mail System module is available, or else
+ * disables the Mime Mail module and returns an informative error message.
  */
-function mimemail_update_6100(&$sandbox) {
-  $ret = array();
+function mimemail_requirements($phase) {
+  if ($phase === 'install' || module_exists('mailsystem')) {
+    return array();
+  }
+  $args = array(
+    '!mailsystem' => url('http://drupal.org/project/mailsystem'),
+    '%mailsystem' => 'Mail System',
+    '!mimemail' => url('http://drupal.org/project/mimemail'),
+    '%mimemail' => 'Mime Mail',
+  );
+  if ( module_enable(array('mailsystem'))
+    && module_load_include('module', 'mailsystem')
+  ) {
+    drupal_set_message(
+      t('The %mailsystem module has been enabled because the %mimemail module now requires it.', $args)
+    );
+    return array();
+  }
+  return array(
+    'mimemail_mailsystem' => array(
+      'title' => t('%mailsystem module', $args),
+      'value' => t('Not installed'),
+      'description' => t(
+        'The <a href="!smtp">%mimemail</a> module dependencies have changed.  Please download and install the required <a href="!mailsystem">%mailsystem</a> module, then re-enable the <a href="!mimemail">%mimemail</a> module.', $args
+      ),
+      'severity' => REQUIREMENT_ERROR,
+    ),
+  );
+}
 
-  $perm = explode(', ', db_result(db_query("SELECT perm FROM {permission} WHERE rid=%d", DRUPAL_AUTHENTICATED_RID)));
-  $perm = implode(', ', array_merge($perm, array('access profile settings')));
-  $record = array('rid' => DRUPAL_AUTHENTICATED_RID, 'perm' => $perm);
-  drupal_write_record('permission', $record, 'rid');
+/**
+ * Check installation requirements.
+ */
+function mimemail_update_7000() {
+  if ($requirements = mimemail_requirements('runtime')) {
+    throw new DrupalUpdateException($requirements['mimemail_mailsystem']['description']);
+  }
+}
 
-  return $ret;
+/**
+ * Deletes useless variables.
+ */
+function mimemail_update_7001() {
+  variable_del('mimemail_theme');
+}
+
+/**
+ * Generate new key for authenticating incoming messages.
+ */
+function mimemail_update_7002() {
+  variable_set('mimemail_key', drupal_random_key());
+  return t('Mime Mail has generated a new key to authenticate incoming messages.');
 }
