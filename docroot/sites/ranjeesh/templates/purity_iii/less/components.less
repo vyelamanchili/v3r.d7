@@ -71,11 +71,20 @@
 .article-title,
 .article-header h1, {
   margin: 0 0 @line-height-computed 0;
+
+  // Control screen mobile
+  @media screen and (max-width: @screen-xs-max) {
+    font-size: @font-size-h3;
+  }
 }
 
 // Smaller "Article Title" in Blog and List layout
 h2.article-title,
 .article-header h2 {
+  // Control screen mobile
+  @media screen and (max-width: @screen-xs-max) {
+    font-size: @font-size-h3;
+  }
 }
 
 
@@ -195,6 +204,11 @@ h2.article-title,
       .container {
         padding: 0;
       }
+    }
+
+    // Control screen mobile
+    @media screen and (max-width: @screen-xs-max) {
+      padding-left: @t3-global-padding;
     }
   }
 }

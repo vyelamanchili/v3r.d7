@@ -1,20 +1,21 @@
-
 .com_mijoshop .box_oc .box-product {
   margin-left: 0;
+  padding: 20px;
 }
 .com_mijoshop .box_oc .box-product > div {
   float: left;
   margin: 0;
-  width: 25%;
+  margin-right: 20px;
+  width: 100%;
 }
 .com_mijoshop .box_oc .box-product > div .image {
+  display: inline-block;
   border: 1px solid #eeeeee;
-  margin: 0 10px;
   padding: 5px;
-  text-align: center;
+  text-align: left;
 }
 .com_mijoshop .box_oc .box-product > div .image a {
-  display: block;
+  display: inline-block;
 }
 .com_mijoshop .box_oc .box-product > div .image img {
   border: 0;
@@ -22,7 +23,16 @@
 }
 .com_mijoshop .box_oc .box-product > div .name {
   padding: 10px 0;
-  text-align: center;
+  text-align: left;
+}
+.com_mijoshop .box_oc .box-product > div .price {
+  margin: 10px 0;
+}
+.com_mijoshop .box_oc #tab-related .box-product > div {
+  width: auto;
+}
+.com_mijoshop .box_oc .box-content .content_oc p * {
+  margin: 10px 10px 10px 0;
 }
 .com_mijoshop #header_oc {
   margin: 0 0 20px;
@@ -159,4 +169,10 @@
 }
 .com_mijoshop .cart-module #shipping table td {
   padding: 10px 20px;
+}
+.com_mijoshop .box-category ul li {
+  padding: 10px 10px 10px 0;
+}
+.com_mijoshop #colorbox {
+  box-sizing: unset !important;
 }
