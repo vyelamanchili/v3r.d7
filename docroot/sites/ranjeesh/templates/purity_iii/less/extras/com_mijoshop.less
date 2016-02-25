@@ -12,19 +12,21 @@
   .box_oc {
     .box-product {
       margin-left: 0;
+      padding: 20px;
       & > div {
         float: left;
         margin: 0;
-        width: 25%;
-
+				margin-right: 20px;
+				width: 100%;
+				
         .image {
+          display: inline-block;
           border: 1px solid @t3-border-color;
-          margin: 0 (@t3-global-margin / 2);
           padding: 5px;
-          text-align: center;
+          text-align: left;
 
           a {
-            display: block;
+            display: inline-block;
           }
 
           img {
@@ -35,7 +37,26 @@
 
         .name {
           padding: (@t3-global-padding / 2) 0;
-          text-align: center;
+          text-align: left;
+        }
+        .price {
+          margin: 10px 0;
+        }
+      }
+    }
+		#tab-related {
+			.box-product {
+				& > div {
+					width: auto;
+				}
+			}
+		}
+    .box-content {
+      .content_oc {
+        p {
+          * {
+            margin: 10px 10px 10px 0;
+          }
         }
       }
     }
@@ -233,6 +254,17 @@
 
   // Mijoshop modules
   // ----------------
-  
+  .box-category {
+    ul {
+      li {
+        padding: 10px 10px 10px 0;
+      }
+    }
+  }
 
+  // Mijoshop colorbox
+  // ----------------
+  #colorbox {
+    box-sizing: unset !important;
+  }
 }

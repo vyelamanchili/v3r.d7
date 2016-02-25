@@ -769,6 +769,10 @@ article aside .btn-group {
     margin-top: @line-height-computed;
     .counter {
       margin-top: 0;
+			border: none;
+			font-size: 14px;
+			font-weight: bold;
+			color: #0077bb;
     }
   }
 
@@ -861,7 +865,15 @@ div.finder {
 //
 // CONTACT
 // ---------------------------------------------------------
-.contact {}
+.contact {
+  .contact-form {
+    .checkbox {
+      input#jform_contact_email_copy {
+        margin-left: 0;
+      }
+    }
+  }
+}
 
 .contact .accordion-heading .accordion-toggle {
   font-weight: bold;

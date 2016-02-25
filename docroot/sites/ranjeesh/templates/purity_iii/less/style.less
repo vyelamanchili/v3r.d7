@@ -157,6 +157,11 @@
       position: absolute;
       left: 20px;
       top: 19px;
+      z-index: 1;
+
+      &:hover {
+        z-index: 0;
+      }
     }
   }
   
@@ -180,8 +185,15 @@
       color: @navbar-default-link-hover-color;
       box-shadow: none;
     }
+
     &:active, &:focus {
       width: 180px;
+    }
+
+    // Fix Auto Fill Search
+    &:-webkit-autofill {
+      -webkit-box-shadow: 0 0 0 1000px #0067a2 inset;
+      -webkit-text-fill-color: @white;
     }
   }
 
@@ -191,6 +203,17 @@
 // If there is a Navbar Toggle, then replace the Search
 .navbar-toggle + .head-search {
   right: @navbar-height;
+  max-width: 57px;
+
+  @media screen and (max-width: @grid-float-breakpoint-max) {
+    &:hover, &:focus, &:active {
+      max-width: none;
+
+      .form-control { 
+        width: 180px;
+      }
+    }
+  }
 }
 
 // Absolute position to right on Tablets / Desktop
@@ -199,6 +222,7 @@
   .navbar-toggle + .head-search {
     right: @grid-gutter-width / 2;
     top: 0;
+    max-width: none;
   }
 }
 
@@ -420,6 +444,7 @@
 // Back to Top
 // -----------
 #back-to-top {
+  z-index: 999;
   position: fixed;
   right: @t3-global-margin;
   top: auto;

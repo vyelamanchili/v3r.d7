@@ -9,7 +9,7 @@ defined('_JEXEC') or die('Restricted access');
  * @author url          http://coalaweb.com
  * @author email        support@coalaweb.com
  * @license             GNU/GPL, see /assets/en-GB.license.txt
- * @copyright           Copyright (c) 2015 Steven Palmer All rights reserved.
+ * @copyright           Copyright (c) 2016 Steven Palmer All rights reserved.
  *
  * CoalaWeb Gears is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -66,10 +66,20 @@ class CWElementVersion extends CWElement {
                 $date = (COM_CWSOCIALLINKS_DATE);
                 $ispro = (COM_CWSOCIALLINKS_PRO);
                 break;
+            case "com_coalawebcomments":
+                $version = (COM_CWCOMMENTS_VERSION);
+                $date = (COM_CWCOMMENTS_DATE);
+                $ispro = (COM_CWCOMMENTS_PRO);
+                break;
             case "com_coalawebtraffic":
                 $version = (COM_CWTRAFFIC_VERSION);
                 $date = (COM_CWTRAFFIC_DATE);
                 $ispro = (COM_CWTRAFFIC_PRO);
+                break;
+            case "com_coalawebmarket":
+                $version = (COM_CWMARKET_VERSION);
+                $date = (COM_CWMARKET_DATE);
+                $ispro = (COM_CWMARKET_PRO);
                 break;
             case "mod_coalawebpanel":
                 $version = (MOD_CWPANEL_VERSION);
@@ -96,6 +106,11 @@ class CWElementVersion extends CWElement {
                 $date = (PLG_CWGEARS_DATE);
                 $ispro = (PLG_CWGEARS_PRO);
                 break;
+            case "plg_system_cwfacebookjs":
+                $version = (PLG_CWFACEBOOKJS_VERSION);
+                $date = (PLG_CWFACEBOOKJS_DATE);
+                $ispro = (PLG_CWFACEBOOKJS_PRO);
+                break;
             case "plg_content_cwgithub":
                 $version = (PLG_CWGITHUB_VERSION);
                 $date = (PLG_CWGITHUB_DATE);
@@ -115,6 +130,11 @@ class CWElementVersion extends CWElement {
                 $version = (PLG_CWPRINT_VERSION);
                 $date = (PLG_CWPRINT_DATE);
                 $ispro = (PLG_CWPRINT_PRO);
+                break;
+            case "plg_user_cwusers":
+                $version = (PLG_CWUSERS_VERSION);
+                $date = (PLG_CWUSERS_DATE);
+                $ispro = (PLG_CWUSERS_PRO);
                 break;
         }
 
