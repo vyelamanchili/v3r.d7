@@ -11,14 +11,19 @@
  * @Link:         http://t3-framework.org 
  *------------------------------------------------------------------------------
  */
-
+ 
+$responsive = $this->getParam('responsive', 1);
+$resClass = "";
+if ($responsive==0){
+	$resClass = "no-responsive";
+}
 
 defined('_JEXEC') or die;
 ?>
 
 <!DOCTYPE html>
 <html lang="<?php echo $this->language; ?>" dir="<?php echo $this->direction; ?>"
-	  class='<jdoc:include type="pageclass" />'>
+	  class='<jdoc:include type="pageclass" /> <?php echo $resClass ?>'>
 
 <head>
 	<jdoc:include type="head" />

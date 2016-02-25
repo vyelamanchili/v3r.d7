@@ -1,5 +1,3 @@
-
-
 @media (max-width: 990px) {
   .always-show .mega > .mega-dropdown-menu,
   .always-show .dropdown-menu {
@@ -89,6 +87,7 @@ a {
   text-decoration: none;
   outline: none;
   -webkit-transition: all 0.2s;
+  -o-transition: all 0.2s;
   transition: all 0.2s;
 }
 a:hover,
@@ -502,16 +501,17 @@ textarea.form-control {
 }
 .btn-inverse:hover,
 .btn-inverse:focus,
+.btn-inverse.focus,
 .btn-inverse:active,
 .btn-inverse.active,
-.open .dropdown-toggle.btn-inverse {
+.open > .dropdown-toggle.btn-inverse {
   color: #ffffff;
-  background-color: #303030;
+  background-color: #2b2b2b;
   border-color: #191919;
 }
 .btn-inverse:active,
 .btn-inverse.active,
-.open .dropdown-toggle.btn-inverse {
+.open > .dropdown-toggle.btn-inverse {
   background-image: none;
 }
 .btn-inverse.disabled,
@@ -523,6 +523,9 @@ fieldset[disabled] .btn-inverse:hover,
 .btn-inverse.disabled:focus,
 .btn-inverse[disabled]:focus,
 fieldset[disabled] .btn-inverse:focus,
+.btn-inverse.disabled.focus,
+.btn-inverse[disabled].focus,
+fieldset[disabled] .btn-inverse.focus,
 .btn-inverse.disabled:active,
 .btn-inverse[disabled]:active,
 fieldset[disabled] .btn-inverse:active,
@@ -1091,29 +1094,56 @@ input.invalid {
   padding-left: 0;
   margin-left: 0;
 }
-.module_menu .nav > li {
+.t3-sidebar .nav > li {
   border-top: 1px solid #eeeeee;
   margin-top: 0;
 }
-.module_menu .nav > li:first-child {
+.t3-sidebar .nav > li:first-child {
   border-top: 0;
 }
-.module_menu .nav > li > a,
-.module_menu .nav > li > .separator {
+.t3-sidebar .nav > li > a,
+.t3-sidebar .nav > li > .separator {
   padding: 10px;
   display: block;
 }
-.module_menu .nav > li.active > a .caret {
+.t3-sidebar .nav > li.active.open > a {
+  background-color: #e67a00;
+  color: #ffffff;
+}
+.t3-sidebar .nav > li > a:hover,
+.t3-sidebar .nav > li.open > a {
+  background-color: #eeeeee;
+  color: #444444;
+}
+.t3-sidebar .nav > li > a:hover .caret,
+.t3-sidebar .nav > li.open > a .caret {
+  border-bottom-color: #444444;
+  border-top-color: #444444;
+}
+.t3-sidebar .dropdown-menu {
+  margin-top: 0;
+}
+.t3-sidebar .nav > li.active > a .caret {
   border-top-color: #ffffff;
   border-bottom-color: #ffffff;
+}
+@media (max-width: 1450px) {
+  .t3-sidebar.t3-sidebar-2 .dropdown-submenu.parent.open > .dropdown-menu,
+  .t3-sidebar.t3-sidebar-right .dropdown-submenu.parent.open > .dropdown-menu {
+    left: auto;
+    right: 100%;
+  }
 }
 #login-form input[type="text"],
 #login-form input[type="password"] {
   width: 100%;
 }
 #login-form ul.unstyled {
-  margin-top: 20px;
-  padding-left: 20px;
+  margin: 0;
+  padding: 0;
+}
+#login-form ul.unstyled li {
+  list-style-type: none;
 }
 #login-form #form-login-remember label {
   font-weight: normal;
@@ -1837,6 +1867,10 @@ article aside .btn-group > .dropdown-toggle .caret {
 }
 #searchForm .form-limit .counter {
   margin-top: 0;
+  border: none;
+  font-size: 14px;
+  font-weight: bold;
+  color: #0077bb;
 }
 @media screen and (max-width: 768px) {
   #searchForm .radio-inline,
@@ -1872,6 +1906,9 @@ article aside .btn-group > .dropdown-toggle .caret {
 }
 div.finder {
   margin-bottom: 20px;
+}
+.contact .contact-form .checkbox input#jform_contact_email_copy {
+  margin-left: 0;
 }
 .contact .accordion-heading .accordion-toggle {
   font-weight: bold;
@@ -2238,6 +2275,18 @@ div.calendar {
 .article-header h1 {
   margin: 0 0 20px 0;
 }
+@media screen and (max-width: 767px) {
+  .article-title,
+  .article-header h1 {
+    font-size: 24px;
+  }
+}
+@media screen and (max-width: 767px) {
+  h2.article-title,
+  .article-header h2 {
+    font-size: 24px;
+  }
+}
 .item-title {
   font-weight: bold;
 }
@@ -2328,6 +2377,11 @@ div.calendar {
   }
   .page-masthead .jumbotron .container {
     padding: 0;
+  }
+}
+@media screen and (max-width: 767px) {
+  .page-masthead .jumbotron {
+    padding-left: 20px;
   }
 }
 .label {
@@ -2520,6 +2574,10 @@ a.list-group-item.active:focus .list-group-item-text {
   position: absolute;
   left: 20px;
   top: 19px;
+  z-index: 1;
+}
+.head-search .search .fa-search:hover {
+  z-index: 0;
 }
 .head-search .form-control {
   border: 0;
@@ -2532,6 +2590,7 @@ a.list-group-item.active:focus .list-group-item-text {
   padding: 0 15px 0 40px;
   width: 0;
   -webkit-transition: width 0.2s;
+  -o-transition: width 0.2s;
   transition: width 0.2s;
 }
 @media screen and (min-width: 991px) {
@@ -2549,14 +2608,32 @@ a.list-group-item.active:focus .list-group-item-text {
 .head-search .form-control:focus {
   width: 180px;
 }
+.head-search .form-control:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #0067a2 inset;
+  -webkit-text-fill-color: #ffffff;
+}
 .navbar-toggle + .head-search {
   right: 55px;
+  max-width: 57px;
+}
+@media screen and (max-width: 990px) {
+  .navbar-toggle + .head-search:hover,
+  .navbar-toggle + .head-search:focus,
+  .navbar-toggle + .head-search:active {
+    max-width: none;
+  }
+  .navbar-toggle + .head-search:hover .form-control,
+  .navbar-toggle + .head-search:focus .form-control,
+  .navbar-toggle + .head-search:active .form-control {
+    width: 180px;
+  }
 }
 @media screen and (min-width: 991px) {
   .head-search,
   .navbar-toggle + .head-search {
     right: 20px;
     top: 0;
+    max-width: none;
   }
 }
 .nav .open > a,
@@ -2695,6 +2772,7 @@ a.list-group-item.active:focus .list-group-item-text {
   color: #666666;
 }
 #back-to-top {
+  z-index: 999;
   position: fixed;
   right: 20px;
   top: auto;
@@ -2751,7 +2829,6 @@ a.list-group-item.active:focus .list-group-item-text {
 #ezblog-body .blog-text li {
   line-height: 1.625;
 }
-
 .features-intro .t3-content {
   padding-top: 0;
   padding-bottom: 0;
@@ -2917,6 +2994,7 @@ a.list-group-item.active:focus .list-group-item-text {
   border: 1px solid #eeeeee;
   padding: 3px;
   -webkit-transition: border-color 0.2s ease-in;
+  -o-transition: border-color 0.2s ease-in;
   transition: border-color 0.2s ease-in;
 }
 .row-feature .gallery .thumbnail a img {
@@ -3305,6 +3383,12 @@ a.list-group-item.active:focus .list-group-item-text {
   border-color: #ff8800;
   color: #ffffff;
 }
+.control-group .controls script + .row-fluid {
+  margin-left: 0;
+}
+.control-group .controls script + .row-fluid + .row-fluid {
+  margin-left: 0;
+}
 .video-wrapper {
   position: relative;
   padding-bottom: 51%;
@@ -3318,4 +3402,3 @@ a.list-group-item.active:focus .list-group-item-text {
   width: 100%;
   height: 100%;
 }
-

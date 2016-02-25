@@ -9,7 +9,7 @@ defined('_JEXEC') or die('Restricted access');
  * @author url          http://coalaweb.com
  * @author email        support@coalaweb.com
  * @license             GNU/GPL, see /assets/en-GB.license.txt
- * @copyright           Copyright (c) 2015 Steven Palmer All rights reserved.
+ * @copyright           Copyright (c) 2016 Steven Palmer All rights reserved.
  *
  * CoalaWeb Gears is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,18 +46,89 @@ class plgSystemCwgears extends JPlugin {
         $lang->load('plg_system_cwgears', JPATH_ADMINISTRATOR, null, 1);
     }
 
+    public function onAfterInitialise() {
+        $app = JFactory::getApplication();
+
+        if ($app->getName() !== 'site') {
+            return;
+        }
+        
+        //Lets keep our resource loading table nice and up to date
+        $dbClean = $this->params->get('db_clean', '1');
+        $db = JFactory::getDbo();
+
+        if ($dbClean) {
+            //Current date time
+            $siteOffset = JFactory::getApplication()->getCfg('offset');
+            $dtnow = JFactory::getDate('now', $siteOffset);
+            $now = $dtnow->toUnix(true);
+
+            //How long should an URL be kept for.
+            $locktime = $this->params->get('locktime', 60) * 60;
+
+            //Check schedual table
+            $query = $db->getQuery(true);
+            $query->select('count(*)');
+            $query->from($db->quoteName('#__cwgears_schedule'));
+            $db->setQuery($query);
+            $current = $db->loadResult();
+
+            //First time? then lets insert a time
+            if (empty($current)) {
+                $query = $db->getQuery(true);
+                $columns = array('time');
+                $values = array($db->quote($now));
+                $query
+                        ->insert($db->quoteName('#__cwgears_schedule'))
+                        ->columns($db->quoteName($columns))
+                        ->values(implode(',', $values));
+                $db->setQuery($query);
+                $db->execute();
+                $items = '';
+            } else {
+                //Not our first time then lets check 
+                //to see if we have any clean up work to do
+                $query = $db->getQuery(true);
+                $query->select('count(*)');
+                $query->from($db->quoteName('#__cwgears_schedule'));
+                $query->where('time + ' . $db->quote($locktime) . '<' . $db->quote($now));
+                $db->setQuery($query);
+                $items = $db->loadResult();
+            }
+
+            //If we have some old entries we should remove them
+            if ($items) {
+
+                $query = $db->getQuery(true);
+                $query->from($db->quoteName('#__cwgears'));
+                $query->delete();
+                $query->where('time + ' . $db->quote($locktime) . '<' . $db->quote($now));
+                $db->setQuery($query);
+                $db->execute();
+
+                //Reset our lock time
+                $query = $db->getQuery(true);
+                $query->update($db->quoteName('#__cwgears_schedule'));
+                $query->set('time = ' . $db->quote($now));
+                $db->setQuery($query);
+                $db->execute();
+            }
+        }
+        return;
+    }
+
     public function onAfterRoute() {
 
         $app = JFactory::getApplication();
         $doc = JFactory::getDocument();
-        $option = JRequest::getCmd('option');
-        $ext = JRequest::getCmd('extension');
+        $option = JFactory::getApplication()->input->get('option');
+        $ext = JFactory::getApplication()->input->get('extension');
         $baseUrl = '../media/coalaweb/';
 
         //Lets add some style for backend extension configurations.
         if ($app->isAdmin()) {
 
-            if ($option == 'com_categories' && ($ext == 'com_coalawebquotes' || $ext == 'com_coalawebmarket' || $ext == 'com_coalawebtraffic'|| $ext == 'com_coalaweblingual')) {
+            if ($option == 'com_categories' && ($ext == 'com_coalawebcomments' || $ext == 'com_coalawebmarket' || $ext == 'com_coalawebtraffic' || $ext == 'com_coalaweblingual')) {
                 if (version_compare(JVERSION, '3.0', '>')) {
                     $doc->addStyleSheet($baseUrl . "components/generic/css/com-coalaweb-base-j3.css");
                     $doc->addStyleSheet($baseUrl . "components/generic/css/com-coalaweb-categories.css");
@@ -67,7 +138,7 @@ class plgSystemCwgears extends JPlugin {
                 }
             }
 
-            if (in_array($option, array('com_coalawebcontact', 'com_coalawebsociallinks', 'com_coalawebtraffic', 'com_coalawebmarket', 'com_coalawebpaypal', 'com_coalaweblingual'))) {
+            if (in_array($option, array('com_coalawebcontact', 'com_coalawebsociallinks', 'com_coalawebtraffic', 'com_coalawebmarket', 'com_coalawebpaypal', 'com_coalaweblingual', 'com_coalawebcomments'))) {
 
                 if (version_compare(JVERSION, '3.0', '>')) {
                     $doc->addStyleSheet($baseUrl . "components/generic/css/com-coalaweb-base-j3.css");
@@ -76,21 +147,26 @@ class plgSystemCwgears extends JPlugin {
                 }
             }
         }
-        
+
         //----------------------------------------------------------------------
         // Gzip Help
         //----------------------------------------------------------------------
-        
         //Lets stop Gzip affecting Facebook and Linkedin scrapper bots.
         $gziphelp = $this->params->get('gzip_help', 1);
-        
+
         //Is Gzip turned on
         $gzip = $app->get('gzip');
-        
+
         if ($gziphelp && $gzip && !$app->isAdmin()) {
 
-            //Lets include our IP helper tools
-            include_once JPATH_PLUGINS . '/system/cwgears/helpers/iptools.php';
+            // Lets check if it exists before including
+            $iptools_php = JPATH_SITE . '/plugins/system/cwgears/helpers/iptools.php';
+            if (JFile::exists($iptools_php)) {
+                include_once $iptools_php;
+            } else {
+                JFactory::getApplication()->enqueueMessage(JText::_('PLG_CWGEARS_ASSET_MISSING_MESSAGE'), 'notice');
+                return;
+            }
 
             //Now get an IP for the current visitor
             $ip = CwGearsIptools::getUserIp();
@@ -129,7 +205,7 @@ class plgSystemCwgears extends JPlugin {
                     $agent = true;
                 }
             }
-            
+
             if ($gzip && $agent) {
                 $app->set('gzip', 0);
             }
@@ -138,7 +214,6 @@ class plgSystemCwgears extends JPlugin {
         //----------------------------------------------------------------------
         // Cache Control
         //----------------------------------------------------------------------
-        
         //Let stop Joomla cache from affecting specific parts of the website.
         //Inspired by Crosstec
         $loadCacheControl = $this->params->get('cache_off', 0);
@@ -146,7 +221,6 @@ class plgSystemCwgears extends JPlugin {
             $this->caching = JFactory::getConfig()->get('caching');
             JFactory::getConfig()->set('caching', 0);
         }
-
     }
 
     public function onBeforeCompileHead() {
@@ -243,47 +317,106 @@ class plgSystemCwgears extends JPlugin {
             unset($scripts);
             unset($headData);
         }
-        
+
         //----------------------------------------------------------------------
         // Uikit
         //----------------------------------------------------------------------
-        
+
         $uikitAdd = $this->params->get('uikit_add', 1);
         $uikitTheme = $this->params->get('uikit_theme', 'flat');
-        $uikitCount = $app->get('CWUikitCount', 0);
+        $url = JURI::getInstance()->toString();
+        
+        if ($app->getName() === 'site' && $doc->getType() === 'html') {
+            
+            // Lets check if it exists before including
+            $loadcount_php = JPATH_SITE . '/plugins/system/cwgears/helpers/loadcount.php';
+            if (JFile::exists($loadcount_php)) {
+                include_once $loadcount_php;
+            } else {
+                JFactory::getApplication()->enqueueMessage(JText::_('PLG_CWGEARS_ASSET_MISSING_MESSAGE'), 'notice');
+                return;
+            }
+            
+            $helpFunc = new CwGearsHelperLoadcount();
+            $newCount = $helpFunc::getCounts($url, 'uikit');
 
-        if ($uikitCount > 0 && $uikitAdd) {
-            // Let create a link to our local uikit directory.
+            if ($newCount) {
+                $uikitCount = $helpFunc::getCounts($url, 'uikit');
+            } elseif ($app->get('CWUikitCount', 0) > 0) {
+                $uikitCount = $app->get('CWUikitCount', 0);
+            } else {
+                $uikitCount = 0;
+            }
+            $uikitPlus = $helpFunc::getCounts($url, 'uikit_plus');
+
             $uikitLocal = JURI::root(true) . "/media/coalaweb/plugins/system/gears/uikit/";
 
-            //Now for a uikit theme
-            switch ($uikitTheme) {
-                case "default":
-                    $uikitCss = 'css/coalaweb.uikit.min.css';
-                    break;
-                case "flat":
-                    $uikitCss = 'css/coalaweb.uikit.almost-flat.min.css';
-                    break;
-                case "gradient":
-                    $uikitCss = 'css/coalaweb.uikit.gradient.min.css';
-                    break;
-                default:
-                    $uikitCss = 'css/coalaweb.uikit.min.css';
+
+            if ($uikitCount > 0 && $uikitAdd) {
+                switch ($uikitTheme) {
+                    case "default":
+                        $uikitCss = 'css/coalaweb.uikit.min.css';
+                        break;
+                    case "flat":
+                        $uikitCss = 'css/coalaweb.uikit.almost-flat.min.css';
+                        break;
+                    case "gradient":
+                        $uikitCss = 'css/coalaweb.uikit.gradient.min.css';
+                        break;
+                    default:
+                        $uikitCss = 'css/coalaweb.uikit.min.css';
+                }
+
+                //Define our custom uikit prefix for the JavaScript
+                $uikitPre = "var myUIkit = UIkit.noConflict('cw');";
+
+                //Add all the stuff we need
+                $doc->addScriptDeclaration($uikitPre);
+                $doc->addScript($uikitLocal . "js/coalaweb.uikit.min.js");
+                $doc->addStyleSheet($uikitLocal . $uikitCss);
             }
 
-            //Define our custom uikit prefix for the JavaScript
-            $uikitPre = "var myUIkit = UIkit.noConflict('cw');";
+            if ($uikitCount > 0 && $uikitPlus > 0 && $uikitAdd) {
+                switch ($uikitTheme) {
+                    case "default":
+                        //adds slider naviagtion
+                        $uikitSlider= 'css/components/coalaweb.slidenav.min.css';
+                        //adds sticky
+                        $uikitSticky = 'css/components/coalaweb.sticky.min.css';
+                        break;
+                    case "flat":
+                        //adds slider naviagtion
+                        $uikitSlider= 'css/components/coalaweb.slidenav.almost-flat.min.css';
+                        //adds sticky
+                        $uikitSticky = 'css/components/coalaweb.sticky.almost-flat.min.css';
+                        break;
+                    case "gradient":
+                        //adds slider naviagtion
+                        $uikitSlider= 'css/components/coalaweb.slidenav.gradient.min.css';
+                        //adds sticky
+                        $uikitSticky = 'css/components/coalaweb.sticky.gradient.min.css';
+                        break;
+                    default:
+                        //adds slider naviagtion
+                        $uikitSlider= 'css/components/coalaweb.slidenav.min.css';
+                        //adds sticky
+                        $uikitSticky = 'css/components/coalaweb.sticky.min.css';
+                }
 
-            //Add all the stuff we need
-            $doc->addScriptDeclaration($uikitPre);
-            $doc->addScript($uikitLocal . "js/coalaweb.uikit.min.js");
-            $doc->addStyleSheet($uikitLocal . $uikitCss);
+                //lightbox support
+                $doc->addScript($uikitLocal . "js/components/coalaweb.lightbox.min.js");
+                //Sticky support
+                $doc->addScript($uikitLocal . "js/components/coalaweb.sticky.min.js");
+                //Add CSS
+                $doc->addStyleSheet($uikitLocal . $uikitSlider);
+                $doc->addStyleSheet($uikitLocal . $uikitSticky);
+            }
         }
-        
+
         //----------------------------------------------------------------------
         // reCAPTCHA Size
         //----------------------------------------------------------------------
-        
+
         $recapCompact = $this->params->get('recap_compact', 0);
 
         if ($recapCompact) {
@@ -298,18 +431,21 @@ class plgSystemCwgears extends JPlugin {
                     $recap["text/javascript"] = $value;
                 }
             }
-            
+
             $headData["script"] = $recap;
             $doc->setHeadData($headData);
 
             unset($recap);
             unset($headData);
+
+            //Add a little CSS to fix size issues
+            $doc->addStyleDeclaration('.recaptcha iframe{width:158px;height: 138px;border-radius:5px;}');
         }
 
         //----------------------------------------------------------------------
         //Custom CSS
         //----------------------------------------------------------------------
-        
+
         $ccssAdd = $this->params->get('ccss_add');
         if ($ccssAdd && !$app->isAdmin() && $doc->getType() == 'html') {
             $ccssCode = $this->params->get('ccss_code');
@@ -332,10 +468,10 @@ class plgSystemCwgears extends JPlugin {
                 $ccssCode = preg_replace('/ +/', ' ', $ccssCode); // Replace multiple spaces with single space.
                 $ccssCode = trim($ccssCode);  // Trim the string of leading and trailing space.
             }
-            if ($ccssCode){
+            if ($ccssCode) {
                 $doc->addCustomTag('<style type="text/css">' . $ccssCode . '</style>');
             }
-            if ($ccssFile){
+            if ($ccssFile) {
                 $doc->addStyleSheet(JURI::base(true) . $ccssFile);
             }
         }
@@ -343,7 +479,7 @@ class plgSystemCwgears extends JPlugin {
         //----------------------------------------------------------------------
         //Custom Javascript
         //----------------------------------------------------------------------
-        
+
         $cjsAdd = $this->params->get('cjs_add');
         if ($cjsAdd && !$app->isAdmin() && $doc->getType() == 'html') {
             $cjsCode = $this->params->get('cjs_code');
@@ -363,11 +499,11 @@ class plgSystemCwgears extends JPlugin {
 
             $doc->addScriptDeclaration($cjsCode);
         }
-        
+
         //----------------------------------------------------------------------
         //Zoo Editor Tweak
         //----------------------------------------------------------------------
-        
+
         $yooEditorTweak = $this->params->get('zoo_editor_tweak');
         if ($yooEditorTweak && $app->isAdmin()) {
             $zooEditorTweak = '.creation-form textarea {width: 100%; height:400px;}';
@@ -377,7 +513,7 @@ class plgSystemCwgears extends JPlugin {
         //----------------------------------------------------------------------
         //Async
         //----------------------------------------------------------------------
-        
+
         $defer = $this->params->get('defer');
         $async = $this->params->get('async');
         if (($defer || $async) && !$app->isAdmin() && $doc->getType() == 'html') {
@@ -433,7 +569,6 @@ class plgSystemCwgears extends JPlugin {
 
             return true;
         }
-
     }
 
     /**
@@ -469,18 +604,19 @@ class plgSystemCwgears extends JPlugin {
             //Lets add Pinterest JS if the Social Links module needs it.
             $module = JModuleHelper::getModule('coalawebsociallinks');
             $moduleTwo = JModuleHelper::getModule('coalawebsocialtabs');
+
             if ($module) {
                 $modParams = new JRegistry;
                 $modParams->loadString($module->params, 'JSON');
                 $this->pinterest = $modParams->get('display_pinterest_bm');
-            } 
-            
+            }
+
             if ($moduleTwo && $this->pinterest == 0) {
                 $modParams = new JRegistry;
                 $modParams->loadString($moduleTwo->params, 'JSON');
                 $this->pinterest = $modParams->get('display_pinterest');
             }
-            
+
 
             if ($this->pinterest) {
                 $body = JResponse::getBody();
@@ -508,7 +644,7 @@ class plgSystemCwgears extends JPlugin {
             }
         }
     }
-    
+
     //Lets check what shouldn't be cached.
     function checkRules() {
         $app = JFactory::getApplication();
@@ -526,7 +662,7 @@ class plgSystemCwgears extends JPlugin {
                     $found = 0;
                     $required = count($result);
                     foreach ($result As $key => $value) {
-                        if (JRequest::getVar($key) == $value || ( JRequest::getVar($key, null) !== null && $value == '?' )) {
+                        if (JFactory::getApplication()->input->get($key) == $value || ( JFactory::getApplication()->input->get($key, null) !== null && $value == '?' )) {
                             $found++;
                         }
                     }
@@ -541,15 +677,15 @@ class plgSystemCwgears extends JPlugin {
     }
 
     function parseQueryString($str) {
-            $op = array();
-            $pairs = explode("&", $str);
-            foreach ($pairs as $pair) {
-                list($k, $v) = array_map("urldecode", explode("=", $pair));
-                $op[$k] = $v;
-            }
-            return $op;
+        $op = array();
+        $pairs = explode("&", $str);
+        foreach ($pairs as $pair) {
+            list($k, $v) = array_map("urldecode", explode("=", $pair));
+            $op[$k] = $v;
         }
-        
+        return $op;
+    }
+
     function crawlerDetect($server) {
         $crawlers = array(
             'Google' => 'Google',

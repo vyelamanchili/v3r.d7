@@ -37,6 +37,8 @@ class T3TemplateLayout extends T3Template
 			$this->setParam('responsive', 0);
 		}
 		$this->setParam('devmode', 0);
+		// disable option skip component content when loading layout for admin
+		$this->setParam('skip_component_content', null);
 	}
 
 	/**
@@ -125,12 +127,9 @@ class T3TemplateLayout extends T3Template
 	 */
 	function loadLayout($layout)
 	{
-		$path = T3_TEMPLATE_PATH . '/tpls/' . $layout . '.php';
-		if (!is_file($path)) {
-			$path = T3_TEMPLATE_PATH . '/tpls/default.php';
-		}
-
-		if (is_file($path)) {
+		$path = T3Path::getPath('tpls/' . $layout . '.php', 'tpls/default.php');
+    
+		if ($path) {
 			// include $path;
 			$html = $this->loadFile($path);
 

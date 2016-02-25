@@ -1,15 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<extension version="2.5" type="plugin" group="system" method="upgrade">
+<extension version="3.2" type="plugin" group="system" method="upgrade">
     <name>PLG_CWGEARS</name>
-    <creationDate>2015-08-28</creationDate>
+    <creationDate>2016-01-12</creationDate>
     <author>Steven Palmer</author>
     <authorEmail>support@coalaweb.com</authorEmail>
     <authorUrl>http://coalaweb.com</authorUrl>
-    <copyright>Copyright (c) 2015 Steven Palmer All rights reserved.</copyright>
+    <copyright>Copyright (c) 2016 Steven Palmer All rights reserved.</copyright>
     <license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
-    <version>0.1.4</version>
+    <version>0.1.7</version>
     <description>PLG_CWGEARS_DESC</description>
 
+    <install> <!-- Runs on install -->
+        <sql>
+            <file driver="mysql" charset="utf8">sql/install/mysql/install.mysql.utf8.sql</file>
+        </sql>
+    </install>
+    <uninstall> <!-- Runs on uninstall -->
+        <sql>
+            <file driver="mysql" charset="utf8">sql/install/mysql/uninstall.mysql.utf8.sql</file>
+        </sql>
+    </uninstall>
+    <update> <!-- Runs on update; New in 1.6 -->
+        <schemas>
+            <schemapath type="mysql">sql/updates/mysql</schemapath>
+        </schemas>
+    </update>
+    
     <languages folder="language">
         <language tag="en-GB">en-GB/en-GB.plg_system_cwgears.ini</language>
         <language tag="en-GB">en-GB/en-GB.plg_system_cwgears.sys.ini</language>
@@ -19,6 +35,7 @@
         <filename plugin="cwgears">cwgears.php</filename>
         <filename>index.html</filename>
         <filename>version.php</filename>
+        <folder>sql</folder>
         <folder>fields</folder>
         <folder>helpers</folder>
         <folder>assets</folder>
@@ -31,7 +48,6 @@
         <folder>modules</folder>
         <folder>plugins</folder>
     </media>
-    
         
     <!-- HELP FILE -->
     <help url="PLG_GWGEARS_HELP_URL" />
@@ -40,6 +56,10 @@
     <updateservers>
         <server type="extension" priority="1" name="CoalaWeb Gears Update">http://cdn.coalaweb.com/updates/cw-gears-core.xml</server>
     </updateservers>
+    
+    <!-- Installation / Uninstallation Script File -->
+    <scriptfile>script.cwgears.php</scriptfile>
+
 
     <config>
         <fields 
@@ -48,8 +68,7 @@
             
             <fieldset 
                 name="GENERAL_PLG"
-                label="PLG_CWGEARS_GENERAL_TITLE" 
-                addfieldpath="/plugins/system/cwgears/fields">
+                label="PLG_CWGEARS_GENERAL_TITLE">
         
                 <field 
                     name="css_import" 
@@ -368,6 +387,37 @@
                     default="option=com_content" 
                     label="PLG_CWGEARS_FIELD_CACHE_RULES_LABEL" 
                     description="PLG_CWGEARS_FIELD_CACHE_RULES_DESC"/>
+                
+            </fieldset>
+            
+            <fieldset 
+                name="ASSETS_PLG"
+                label="PLG_CWGEARS_ASSETS_TITLE">
+                
+                <field 
+                    name="dbclean_info"
+                    type="info"
+                    default=""
+                    label="PLG_CWGEARS_DBCLEAN_MESSAGE"/>
+                                
+                <field 
+                    name="db_clean" 
+                    type="radio" 
+                    default="1" 
+                    class="btn-group btn-group-yesno"
+                    label="PLG_CWGEARS_FIELD_DBCLEAN_LABEL" 
+                    description="PLG_CWGEARS_FIELD_DBCLEAN_DESC">
+                    <option value="1">CW_YES</option>
+                    <option value="0">CW_NO</option>
+                </field>
+
+                <field
+                    name="locktime"
+                    type="text"
+                    default="1440"
+                    required="true"
+                    label="PLG_CWGEARS_FIELD_LOCKTIME_LABEL"
+                    description="PLG_CWGEARS_FIELD_LOCKTIME_DESC"/>
                 
             </fieldset>
             

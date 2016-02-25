@@ -1,10 +1,12 @@
 <?php
 class JConfig {
 	public $offline = '0';
-	public $offline_message = 'This site is down for maintenance.<br /> Please check back again soon.';
+	public $offline_message = 'This site is down for maintenance.<br /> Please check back again soon.
+
+http;//www.v3r.us';
 	public $display_offline_message = '1';
 	public $offline_image = '';
-	public $sitename = 'Ranjeesh\'s Portfolio Site';
+	public $sitename = 'Ranjeesh Yelamanchili';
 	public $editor = 'tinymce';
 	public $captcha = '0';
 	public $list_limit = '20';
@@ -44,7 +46,7 @@ class JConfig {
 	public $cache_handler = 'file';
 	public $cachetime = '15';
 	public $MetaDesc = 'Ranjeesh Yelamanchili\'s Portfolio Site';
-	public $MetaKeys = 'Ranjeesh, Yelamanchili, Portfolio, Drupal, Developer, LAMP, PHP';
+	public $MetaKeys = 'Ranjeesh, Yelamanchili, Portfolio, Drupal, Developer, LAMP, PHP, Joomla, Wordpress, MySQL';
 	public $MetaTitle = '1';
 	public $MetaAuthor = '1';
 	public $MetaVersion = '0';
