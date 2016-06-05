@@ -5,6 +5,7 @@ WP-Cache Config Sample File
 See wp-cache.php for author details.
 */
 
+$cache_awaitingmoderation = '0'; //Added by WP-Cache Manager
 $cache_schedule_interval = 'daily'; //Added by WP-Cache Manager
 $cache_gc_email_me = 0; //Added by WP-Cache Manager
 $cache_time_interval = '3600'; //Added by WP-Cache Manager
@@ -29,9 +30,9 @@ if ( ! defined('WPCACHEHOME') )
 $cache_compression = 1; //Added by WP-Cache Manager
 $cache_enabled = true; //Added by WP-Cache Manager
 $super_cache_enabled = true; //Added by WP-Cache Manager
-$cache_max_time = 3600; //in seconds
+$cache_max_time = 3600; //Added by WP-Cache Manager
 //$use_flock = true; // Set it true or false if you know what to use
-$cache_path = WP_CONTENT_DIR . '/cache/';
+$cache_path = '/var/www/html/v3r.us/docroot/sites/yvranjeesh/wp-content/cache'; //Added by WP-Cache Manager
 $file_prefix = 'wp-cache-';
 $ossdlcdn = 0;
 
@@ -46,7 +47,7 @@ $cache_rebuild_files = 1; //Added by WP-Cache Manager
 // Disable the file locking system.
 // If you are experiencing problems with clearing or creating cache files
 // uncommenting this may help.
-$wp_cache_mutex_disabled = 1; //Added by WP-Cache Manager
+$wp_cache_mutex_disabled = 0; //Added by WP-Cache Manager
 
 // Just modify it if you have conflicts with semaphores
 $sem_id = 1300970666; //Added by WP-Cache Manager
@@ -78,8 +79,8 @@ $wp_supercache_cache_list = 0; //Added by WP-Cache Manager
 $wp_cache_debug_to_file = 0;
 $wp_super_cache_debug = '1'; //Added by WP-Cache Manager
 $wp_cache_debug_level = 5;
-$wp_cache_debug_ip = '72.219.200.124'; //Added by WP-Cache Manager
-$wp_cache_debug_log = 'd1cb2b47bc693411e9fa856e387f72f0.txt'; //Added by WP-Cache Manager
+$wp_cache_debug_ip = '72.86.44.81'; //Added by WP-Cache Manager
+$wp_cache_debug_log = ''; //Added by WP-Cache Manager
 $wp_cache_debug_email = '';
 $wp_cache_pages[ "search" ] = 0;
 $wp_cache_pages[ "feed" ] = 0;
