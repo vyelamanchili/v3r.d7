@@ -217,7 +217,7 @@ $databases = array (
   array (
     'default' => 
     array (
-      'database' => 'v3r_drupal',
+      'database' => 'v3r_swr_drupal',
       'username' => 'v3r',
       'password' => 'Ranjureetu59',
       'host' => 'localhost',
@@ -258,7 +258,7 @@ $update_free_access = FALSE;
  *   $drupal_hash_salt = file_get_contents('/home/example/salt.txt');
  *
  */
-$drupal_hash_salt = 'YayaPRmSvRR3zumHb2b3QhfoziEhzDyox26vFD_bxdw';
+$drupal_hash_salt = '5y609hlI1NEo7lvxk9nYtvQlMXxm1v7miE8yS0pSgkk';
 
 /**
  * Base URL (optional).

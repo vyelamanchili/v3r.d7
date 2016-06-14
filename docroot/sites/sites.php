@@ -53,15 +53,4 @@
  * @see conf_path()
  * @see http://drupal.org/documentation/install/multi-site
  */
-$sites['swathywedsranjeesh.v3r.us'] = 'swathywedsranjeesh.v3r.us';
-$sites['v3rdev.devcloud.acquia-sites.com.swathywedsranjeesh'] = 'swathywedsranjeesh.v3r.us';
-$sites['v3rtest.devcloud.acquia-sites.com.swathywedsranjeesh'] = 'swathywedsranjeesh.v3r.us';
-$sites['v3r.dev.swathywedsranjeesh'] = 'swathywedsranjeesh.v3r.us';
-
 //$sites['sew-hfs.v3r.us'] = 'sew-hfs.v3r.us';
-
-$sites['shop.v3r.us'] = 'shop.v3r.us';
-$sites['www.v3r.us.shop'] = 'shop.v3r.us';
-$sites['v3rdev.devcloud.acquia-sites.com.shop.'] = 'shop.v3r.us';
-$sites['v3rtest.devcloud.acquia-sites.com.shop'] = 'shop.v3r.us';
-$sites['v3r.dev.shop'] = 'shop.v3r.us';
